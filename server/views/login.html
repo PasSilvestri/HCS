@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.blue-indigo.min.css">
+    <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+    
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .logo {
+            width: 3em;
+            position: fixed;
+            right: 0px;
+            top: 0px;
+        }
+
+        .title {
+            margin-right: auto;
+            margin-left: auto;
+            color: rgb(83, 109, 254);
+        }
+
+        .redbox {
+            display: flex;
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            border: 3px solid red;
+            border-radius: 3px;
+            text-align: center;
+            background-color: rgba(255, 0, 0, 0.4);
+            color: white;
+            text-align: center;
+            box-sizing: border-box;
+            padding: 1em;
+            white-space: nowrap;
+        }
+
+        #errordiv {
+            display: none;
+            position: absolute;
+            top: 90%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            min-width: 33vw;
+            min-height: 12vh;
+        }
+
+        #errordiv h4{
+            font-size: 1em;
+        }
+
+        #noscriptdiv {
+            position: absolute;
+            top: 80%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 55vw;
+            height: 18vh;
+        }
+    </style>
+</head>
+
+<body onload="onLoad()">
+    
+    <h2 class="title">Home Cloud System</h2>
+
+    <noscript>
+        <div id="noscriptdiv" class="redbox">
+            <h2>HCS client needs javascript to work properly</h2>
+        </div>
+    </noscript>
+
+    <!-- <img src="/img/FractalLogo-small.png" alt="Logo" class="logo"> -->
+
+    <form id="form" action="/login" method="post" style="margin: auto; display: none;">
+
+        <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="display: block">
+            <input class="mdl-textfield__input" type="text" name="username" id="username" required>
+            <label class="mdl-textfield__label" for="username">Username</label>
+        </div>
+
+        <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="display: block">
+            <input class="mdl-textfield__input" type="password" name="password" id="password" required>
+            <label class="mdl-textfield__label" for="password">Password</label>
+        </div>
+
+        <label class="mdl-checkbox mdl-js-checkbox mdl-js-ripple-effect" for="rememberMe">
+            <input type="checkbox" name="rememberMe" id="rememberMe" class="mdl-checkbox__input" checked>
+            <span class="mdl-checkbox__label">Remember Me</span>
+        </label>
+
+        <div style="display: inline-block; padding: 20px 0;">
+            <input type="submit" class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect mdl-button--accent" value="Log In"></input>
+        </div>
+
+    </form>
+
+    <div id="errordiv" class="redbox">
+        <h4>Wrong username/password !</h4>
+    </div>
+
+    <script>
+
+        var saveUser;
+        var username;
+        var password;
+        var loginDiv;
+        var form;
+
+        function onLoad() {
+            username = document.getElementById("username");
+            password = document.getElementById("password");
+            saveUser = document.getElementById("rememberMe");
+            form = document.getElementById("form");
+            form.addEventListener("submit", login);
+            form.style.display = "block";
+            username.focus();
+        }
+
+        function login(event) {
+            event.preventDefault();
+
+            var xhttp = new XMLHttpRequest();
+            xhttp.onreadystatechange = function () {
+                if (this.readyState == 4 && this.status == 200) {
+                    if (this.responseText == "Access granted") {
+                        document.location = "/";
+                    }
+                    else {
+                        showErrorPopup();
+                    }
+                }
+            };
+            var request = "/login";
+            var params = username.name + "=" + username.value + "&" + password.name + "=" + password.value + "&" + saveUser.name + "=" + saveUser.checked;
+
+            xhttp.open("POST", request, true);
+            xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+            xhttp.send(params);
+        }
+
+
+        function showErrorPopup() {
+            password.value = "";
+            var JerrorDiv = $("#errordiv");
+            JerrorDiv.css("display", "flex");
+            animate(1, JerrorDiv);
+        }
+
+        function animate(count, objToAnimate) {
+            if (count == 12) {
+                objToAnimate.animate({ "margin-left": "0px" }, 50);
+                return;
+            }
+            if ((count % 2) != 0) {
+                objToAnimate.animate({ "margin-left": "-4px" }, 50, function () { animate(++count, objToAnimate) });
+            }
+            else {
+                objToAnimate.animate({ "margin-left": "+4px" }, 50, function () { animate(++count, objToAnimate) });
+            }
+        }
+
+    </script>
+
+</body>
+
+</html>

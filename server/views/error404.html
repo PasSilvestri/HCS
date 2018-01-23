@@ -1,0 +1,63 @@
+<html>
+<head>
+	<title>Nova Card Game</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+	<link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
+	<style type="text/css">
+				
+		.sized{
+			width: 33vw;
+			height: 4vh;
+			margin: 2vh;
+		}
+		
+		.centered {
+			position: absolute;
+			top: 50%;
+			left: 50%;
+			/* bring your own prefixes */
+			transform: translate(-50%, -50%);
+		}
+		
+		.redbox{
+			border: 3px solid red;
+			border-radius: 3px;
+			text-align: center;
+			background-color: rgba(255,0,0,0.4);
+			color: white;
+		}
+		
+		#errordiv{
+			display: block;
+			position: absolute;
+			top: 50%;
+			left: 50%;
+			transform: translate(-50%, -50%); 
+			min-width: 28vw;
+			padding: 20px;
+			
+		}
+		
+		#noscriptdiv{
+			position: absolute;
+			top: 80%;
+			left: 50%;
+			transform: translate(-50%, -50%); 
+			width: 55vw;
+			height: 18vh;
+		}
+		
+	</style>
+	<link rel="stylesheet" type="text/css" href="/css/GeneralStyle.css">
+	
+</head>
+<body>
+	
+	<h1 class="title">Nova Card Game</h1>
+
+	<div id="errordiv" class="redbox">
+		<h4 id="errorlabel">Error 404<br/>Sorry we haven't found what you are looking for☹️<br/><a href="/">Go back to the game</a></h4>
+	</div>
+	
+</body>
+</html>

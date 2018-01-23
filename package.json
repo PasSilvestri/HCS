@@ -1,0 +1,25 @@
+{
+  "name": "hcs",
+  "version": "1.0.0",
+  "description": "HomeCloudSystem",
+  "main": "server.js",
+  "bin": "server.js",
+  "scripts": {
+    "test": "node --inspect server.js"
+  },
+  "author": "PasSilvestri",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "body-parser": "^1.18.2",
+    "express": "^4.16.2",
+    "express-fileupload": "^0.3.0",
+    "get-folder-size": "^1.0.1",
+    "is-valid-path": "^0.1.1",
+    "mime": "^2.1.0",
+    "socket.io": "^2.0.4"
+  },
+  "pkg": {
+    "assets": "server/**/*"
+  }
+}
