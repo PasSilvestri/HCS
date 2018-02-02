@@ -17,7 +17,8 @@
     "get-folder-size": "^1.0.1",
     "is-valid-path": "^0.1.1",
     "mime": "^2.1.0",
-    "socket.io": "^2.0.4"
+    "socket.io": "^2.0.4",
+    "webtorrent": "^0.98.20"
   },
   "pkg": {
     "assets": "server/**/*"

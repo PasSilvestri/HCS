@@ -1,0 +1,85 @@
+input[type=range].music-slider {
+    -webkit-appearance: none;
+    width: 100%;
+    margin: 7.5px 0;
+  }
+  input[type=range].music-slider:focus {
+    outline: none;
+  }
+  input[type=range].music-slider::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 0px;
+    cursor: pointer;
+    box-shadow: 1px 1px 1px rgba(0, 0, 0, 0), 0px 0px 1px rgba(13, 13, 13, 0);
+    background: rgba(48, 113, 169, 0);
+    border-radius: 0px;
+    border: 0px solid rgba(1, 1, 1, 0);
+  }
+  input[type=range].music-slider::-webkit-slider-thumb {
+    box-shadow: 1px 1px 1px rgba(0, 0, 0, 0.36), 0px 0px 1px rgba(13, 13, 13, 0.36);
+    border: 0px solid rgba(0, 0, 0, 0.35);
+    height: 15px;
+    width: 15px;
+    border-radius: 50px;
+    background: #ffffff;
+    cursor: pointer;
+    -webkit-appearance: none;
+    margin-top: -7.5px;
+  }
+  input[type=range].music-slider:focus::-webkit-slider-runnable-track {
+    background: rgba(49, 116, 173, 0);
+  }
+  input[type=range].music-slider::-moz-range-track {
+    width: 100%;
+    height: 0px;
+    cursor: pointer;
+    box-shadow: 1px 1px 1px rgba(0, 0, 0, 0), 0px 0px 1px rgba(13, 13, 13, 0);
+    background: rgba(48, 113, 169, 0);
+    border-radius: 0px;
+    border: 0px solid rgba(1, 1, 1, 0);
+  }
+  input[type=range].music-slider::-moz-range-thumb {
+    box-shadow: 1px 1px 1px rgba(0, 0, 0, 0.36), 0px 0px 1px rgba(13, 13, 13, 0.36);
+    border: 0px solid rgba(0, 0, 0, 0.35);
+    height: 15px;
+    width: 15px;
+    border-radius: 50px;
+    background: #ffffff;
+    cursor: pointer;
+  }
+  input[type=range].music-slider::-ms-track {
+    width: 100%;
+    height: 0px;
+    cursor: pointer;
+    background: transparent;
+    border-color: transparent;
+    color: transparent;
+  }
+  input[type=range].music-slider::-ms-fill-lower {
+    background: rgba(47, 110, 165, 0);
+    border: 0px solid rgba(1, 1, 1, 0);
+    border-radius: 0px;
+    box-shadow: 1px 1px 1px rgba(0, 0, 0, 0), 0px 0px 1px rgba(13, 13, 13, 0);
+  }
+  input[type=range].music-slider::-ms-fill-upper {
+    background: rgba(48, 113, 169, 0);
+    border: 0px solid rgba(1, 1, 1, 0);
+    border-radius: 0px;
+    box-shadow: 1px 1px 1px rgba(0, 0, 0, 0), 0px 0px 1px rgba(13, 13, 13, 0);
+  }
+  input[type=range].music-slider::-ms-thumb {
+    box-shadow: 1px 1px 1px rgba(0, 0, 0, 0.36), 0px 0px 1px rgba(13, 13, 13, 0.36);
+    border: 0px solid rgba(0, 0, 0, 0.35);
+    height: 15px;
+    width: 15px;
+    border-radius: 50px;
+    background: #ffffff;
+    cursor: pointer;
+    height: 0px;
+  }
+  input[type=range].music-slider:focus::-ms-fill-lower {
+    background: rgba(48, 113, 169, 0);
+  }
+  input[type=range].music-slider:focus::-ms-fill-upper {
+    background: rgba(49, 116, 173, 0);
+  }

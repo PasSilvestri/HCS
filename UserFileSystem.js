@@ -332,10 +332,29 @@ class UserFileSystem{
             return;
         }
         let pathDir = this.resolve(pathData.dir+"/",true);
+
+        //Remove it from the public shared folder
+        let ps = this.getPublicShareFolder(pathString);
+        //Wheter it exists or not, unlink it
+        fs.unlink(this.getMachinePath(ps.correspondingPath),(err) => {});
+
+        //Remove it from the public shared folder
+        let ls = this.getLinkShareFolder(pathString);
+        //Wheter it exists or not, unlink it
+        fs.unlink(this.getMachinePath(ls.correspondingPath),(err) => {});
+
+        //If the file to delete was a shared file, we already deleted it
+        if(pathString == ps.insidePath || pathString == ls.insidePath){
+            callback(undefined);
+        }
+
+        //If the thing to delete is not already in the trash, or is a shared file, move it there
         if(pathDir != pathData.root + "/$hcs$trash/"){
+           
             let trash = this.getTrashFolder(pathString);
             fs.rename(machinePathString,trash.machinePath+"/"+pathData.base,callback);
         }
+        //Otherwise, if it's already in the trash folder, or is a shared file, delete it
         else{
             fs.unlink(machinePathString,callback);
         }
@@ -411,6 +430,43 @@ class UserFileSystem{
         catch(err){
             throw err;
         }
+    }
+
+    shareFile(path,shareType,callback){
+        //ShareType 1 == PublicShare, ShareType 2 == LinkShare
+        if(shareType != 1 && shareType != 2){
+            //Error 5: Share type not supported
+            callback(new UserFileSystemError(5));
+        }
+        path = this.resolve(path,true);
+        let shareLoc = (shareType == 1) ? this.getPublicShareFolder(path).machinePath : this.getLinkShareFolder(path).machinePath;
+        let filePathWORoot = path.substr(path.indexOf("/"));
+        if(filePathWORoot.trim() == ""){
+            //Error 2: Non valid path
+            callback(new UserFileSystemError(3));
+            return;
+        }
+        shareLoc += filePathWORoot;
+        //If shareType is LinkShare, a link in return is needed
+        var shareLink;
+        if(shareType == 2){
+            shareLink = `/linkshare/${this.username}?root=${path.substring(0,path.indexOf("/"))}&path=${filePathWORoot}`;
+        }
+        //First unlink any already present files
+        fs.unlink(shareLoc,function(err){
+            //Create all intermediate folders
+            createIntermediatePath(shareLoc.substring(0,shareLoc.lastIndexOf("/")));
+            //Then link it back
+            fs.link(this.getMachinePath(path),shareLoc,function(err){
+                if(err){
+                    //Error 2: Path doesn't exists
+                    callback(new UserFileSystemError(2));
+                }
+                else{
+                    callback(undefined,shareLink);
+                }
+            }.bind(this));
+        }.bind(this));
     }
 
     stat(path, callback) {
@@ -585,21 +641,81 @@ class UserFileSystem{
         pathString = this.resolve(pathString, true);
         let pathData = this.parse(pathString, true);
         let finalPath = pathData.root + "/$hcs$trash";
-        return new HCSDirectory(this.getMachinePath(finalPath), finalPath, 0, "Trash");
+        let ret = new HCSDirectory(this.getMachinePath(finalPath), finalPath, 0, "Trash");
+        let adding = "";
+        let addingFile = "";
+        let correspondingAdding = "";
+        //If the path is part of this folder, fill in the insidePath and insideFolderPath correctelly
+        if(pathString.includes(ret.path)){
+            adding = pathString.replace(ret.path,"");
+            addingFile = adding;
+            if(this.statSync(pathString).isFile){
+                adding  = adding.replace(pathData.base,"");
+            }
+            correspondingAdding = addingFile;
+        }
+        else{
+            correspondingAdding = pathString.replace(pathData.root,"");
+        }
+        //InsideFolderPath and insidePath carry the folder path and the entire path of whatever was passed as pathString in case is part of this special folder
+        ret.insideFolderPath =  this.resolve(ret.path + "/" + adding,true);
+        ret.insidePath = this.resolve(ret.path + "/" + addingFile,true);
+        ret.correspondingPath = this.resolve(ret.path + "/" + correspondingAdding,true);
+        return ret;
     }
 
     getPublicShareFolder(pathString) {
         pathString = this.resolve(pathString, true);
         let pathData = this.parse(pathString, true);
         let finalPath = pathData.root + "/$hcs$publicshare";
-        return new HCSDirectory(this.getMachinePath(finalPath), finalPath, 0, "Trash");
+        let ret = new HCSDirectory(this.getMachinePath(finalPath), finalPath, 0, "Public Share");
+        let adding = "";
+        let addingFile = "";
+        let correspondingAdding = "";
+        //If the path is part of this folder, fill in the insidePath and insideFolderPath correctelly
+        if(pathString.includes(ret.path)){
+            adding = pathString.replace(ret.path,"");
+            addingFile = adding;
+            if(this.statSync(pathString).isFile){
+                adding  = adding.replace(pathData.base,"");
+            }
+            correspondingAdding = addingFile;
+        }
+        else{
+            correspondingAdding = pathString.replace(pathData.root,"");
+        }
+        //InsideFolderPath and insidePath carry the folder path and the entire path of whatever was passed as pathString in case is part of this special folder
+        ret.insideFolderPath =  this.resolve(ret.path + "/" + adding,true);
+        ret.insidePath = this.resolve(ret.path + "/" + addingFile,true);
+        ret.correspondingPath = this.resolve(ret.path + "/" + correspondingAdding,true);
+        return ret;
     }
 
     getLinkShareFolder(pathString) {
         pathString = this.resolve(pathString, true);
         let pathData = this.parse(pathString, true);
         let finalPath = pathData.root + "/$hcs$linkshare";
-        return new HCSDirectory(this.getMachinePath(finalPath), finalPath, 0, "Trash");
+        let ret = new HCSDirectory(this.getMachinePath(finalPath), finalPath, 0, "Link Share");
+        let adding = "";
+        let addingFile = "";
+        let correspondingAdding = "";
+        //If the path is part of this folder, fill in the insidePath and insideFolderPath correctelly
+        if(pathString.includes(ret.path)){
+            adding = pathString.replace(ret.path,"");
+            addingFile = adding;
+            if(this.statSync(pathString).isFile){
+                adding  = adding.replace(pathData.base,"");
+            }
+            correspondingAdding = addingFile;
+        }
+        else{
+            correspondingAdding = pathString.replace(pathData.root,"");
+        }
+        //InsideFolderPath and insidePath carry the folder path and the entire path of whatever was passed as pathString in case is part of this special folder
+        ret.insideFolderPath =  this.resolve(ret.path + "/" + adding,true);
+        ret.insidePath = this.resolve(ret.path + "/" + addingFile,true);
+        ret.correspondingPath = this.resolve(ret.path + "/" + correspondingAdding,true);
+        return ret;
     }
 
 
@@ -651,6 +767,7 @@ class UserFileSystemError{
     //2: Path doesn't exists
     //3: Non valid path
     //4: Folder path required
+    //5: Share type not supported
     constructor(errorNumber, err){
         this.errorNumber = errorNumber;
         switch(errorNumber){
@@ -673,6 +790,10 @@ class UserFileSystemError{
             case 4:
                 this.name = "Folder path required";
                 this.message = `Is required a folder path, ${err} is a file path`;
+                break;
+            case 5:
+                this.name = "Share type not supported";
+                this.message = "This share type is not supported";
                 break;
         }
     }

@@ -285,6 +285,68 @@ app.get("/files",function(req,res){
 						res.sendStatus(200);
 				});
 				return;
+			case "publicsharefolderinfo":
+				let pShareFolder = ufs.getPublicShareFolder(req.query.path);
+				res.setHeader("Cache-Control","no-cache, no-store, must-revalidate");
+				res.send(JSON.stringify(pShareFolder));
+				return;
+			case "linksharefolderinfo":
+				let lShareFolder = ufs.getLinkShareFolder(req.query.path);
+				res.setHeader("Cache-Control","no-cache, no-store, must-revalidate");
+				res.send(JSON.stringify(lShareFolder));
+				return;
+			case "publicsharefile":
+				//Check if the path exists
+				var stat;
+				try{
+					stat = ufs.statSync(req.query.path);
+				}
+				catch(err){
+					res.sendStatus(404);
+					return;
+				}
+				//If the path exists deliver what was requested
+				if(stat.isFile){
+					ufs.shareFile(req.query.path,1, function(err){
+						res.setHeader("Cache-Control","no-cache, no-store, must-revalidate");
+						if(err){
+							res.status(500).send(err.name);
+						}
+						else{
+							res.sendStatus(200);
+						}
+					});
+				}
+				else{
+					res.status(543).send("File path required");
+				}
+				return;
+			case "linksharefile":
+				//Check if the path exists
+				var stat;
+				try {
+					stat = ufs.statSync(req.query.path);
+				}
+				catch (err) {
+					res.sendStatus(404);
+					return;
+				}
+				//If the path exists deliver what was requested
+				if (stat.isFile) {
+					ufs.shareFile(req.query.path, 2, function (err,link) {
+						res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+						if (err) {
+							res.status(500).send(err.name);
+						}
+						else {
+							res.status(200).send(link);
+						}
+					});
+				}
+				else {
+					res.status(543).send("File path required");
+				}
+				return;
 			case "file":
 				//Check if the path exists
 				var stat;
@@ -403,17 +465,18 @@ app.post("/files",function(req,res){
 		}
 		var fileIndex = 0;
 		for(let file of req.files.files){
-			console.log(`${username} is writing file: ${pathString+"/"+file.name}`);
-			ufs.writeFile(file.data,pathString+"/"+file.name,(err)=> {
+			console.log(`${username} is writing file: ${ufs.resolve(pathString+"/"+file.name)}`);
+			ufsPath = ufs.getMachinePath(pathString+"/"+file.name);
+			file.mv(ufsPath,(err)=> {
 				if(err){
 					res.sendStatus(500);
 					fileIndex = -1;
 				}
 				if(fileIndex > -1) fileIndex++;
 				if(fileIndex >= req.files.files.length){
-					res.sendStatus(200);
+					res.status(200).send(ufs.parse(pathString+"/"+req.files.files[0].name,true));
 				}
-			})
+			});
 		}
 	}
 	else{

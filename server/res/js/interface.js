@@ -141,6 +141,9 @@ class Interface {
         }
         document.body.ondrop = function (ev) {
             ev.preventDefault();
+            if(this.addFileBtn.disabled){
+                return;
+            }
             var files = [];
             // If dropped items aren't files, reject them
             var dt = ev.dataTransfer;
@@ -176,6 +179,25 @@ class Interface {
             this.openTrashFolder();
         }.bind(this);
 
+        //Setting up the drawer's button to open the public share folder
+        this.publicShareFolderBtn = document.getElementById("drawerPublicShareBtn");
+        this.publicShareFolderBtn.onclick = function(event){
+            //Close the drawer after click
+            this.toggleDrawer(this.drawer);
+            //Open the folder
+            this.openPublicShareFolder();
+        }.bind(this);
+
+        //Setting up the drawer's button to open the link share folder
+        this.publicLinkFolderBtn = document.getElementById("drawerLinkShareBtn");
+        this.publicLinkFolderBtn.onclick = function(event){
+            //Close the drawer after click
+            this.toggleDrawer(this.drawer);
+            //Open the folder
+            this.openLinkShareFolder();
+        }.bind(this);
+        
+
 
         //Seting up the popstate event so that it handles back button clicks
         window.onpopstate = this.handleBackButton.bind(this);
@@ -183,6 +205,8 @@ class Interface {
         this.buildFileTree = this.buildFileTree.bind(this);
         this.openFolder = this.openFolder.bind(this);
         this.openTrashFolder = this.openTrashFolder.bind(this);
+        this.openPublicShareFolder = this.openPublicShareFolder.bind(this);
+        this.openLinkShareFolder = this.openLinkShareFolder.bind(this);
         this.uploadFile = this.uploadFile.bind(this);
         this.addFolder = this.addFolder.bind(this);
         this.openFile = this.openFile.bind(this);
@@ -206,6 +230,12 @@ class Interface {
         else if(state.type == "trash"){
             this.openTrashFolder(state.path,false);
         }
+        else if(state.type == "publicshare"){
+            this.openPublicShareFolder(state.path,false);
+        }
+        else if(state.type == "linkshare"){
+            this.openLinkShareFolder(state.path,false);
+        }
     }
 
 
@@ -222,13 +252,96 @@ class Interface {
         if (!path) {
             //If path is undefined use the current synced directly
             path = this.hcs.currentFolder;
+
+            //Check if the folder is a special folder
+            if(path.includes("$hcs$trash")){
+                this.openTrashFolder(path, true, false);
+                return;
+            }
+            else if(path.includes("$hcs$publicshare")){
+                this.openPublicShareFolder(path, true, false);
+                return;
+            }
+            else if(path.includes("$hcs$linkshare")){
+                this.openLinkShareFolder(path, true, false);
+                return;
+            }
+
+            //Else, open this folder normaly
             this.hcs.requestFileTree(path, 1, this.buildFileTree);
+
+            //Enable file upload button and add folder button if not uploading
+            if(!this.isUploadingFile){
+                this.addFileBtn.disabled = false;
+            }
+            this.addFolderBtn.disabled = false;
+            this.inSpecialFolder = false; //Used to tell to other components that we are in a special folder
+
+            //Update the history state if requested and also if the last state is not the same as the one we are trying to update
+            if (updateHistory && !(history.state && history.state.path == path)) {
+                let state = {
+                    path: path,
+                    type: "general"
+                };
+                if (history.state && history.state.path == state.path) {
+                    return;
+                }
+
+                if (replacePreviousHistoryState) {
+                    window.history.replaceState(state, "HCS", "/");
+                }
+                else {
+                    window.history.pushState(state, "HCS", "/");
+                }
+                console.log("Updating history with " + state.path);
+            }
         }
         else {
             //Change path and then load the file tree
             this.hcs.changeCurrentFolder(path, function (err, newPath) {
                 if (!err) {
+                    //Check if the folder is a special folder
+                    if (newPath.includes("$hcs$trash")) {
+                        this.openTrashFolder(path, true, false);
+                        return;
+                    }
+                    else if (newPath.includes("$hcs$publicshare")) {
+                        this.openPublicShareFolder(path, true, false);
+                        return;
+                    }
+                    else if (newPath.includes("$hcs$linkshare")) {
+                        this.openLinkShareFolder(path, true, false);
+                        return;
+                    }
+
+                    //Else, open this folder normaly
                     this.hcs.requestFileTree(newPath, 1, this.buildFileTree);
+
+                    //Enable file upload button and add folder button if not uploading
+                    if(!this.isUploadingFile){
+                        this.addFileBtn.disabled = false;
+                    }
+                    this.addFolderBtn.disabled = false;
+                    this.inSpecialFolder = false; //Used to tell to other components that we are in a special folder
+
+                    //Update the history state if requested and also if the last state is not the same as the one we are trying to update
+                    if (updateHistory && !(history.state && history.state.path == newPath)) {
+                        let state = {
+                            path: newPath,
+                            type: "general"
+                        };
+                        if (history.state && history.state.path == state.path) {
+                            return;
+                        }
+
+                        if (replacePreviousHistoryState) {
+                            window.history.replaceState(state, "HCS", "/");
+                        }
+                        else {
+                            window.history.pushState(state, "HCS", "/");
+                        }
+                        console.log("Updating history with " + state.path);
+                    }
                 }
                 else if (err == 404) {
                     
@@ -268,24 +381,6 @@ class Interface {
                 }
             }.bind(this));
         }
-
-        //Update the history state if requested and also if the last state is not the same as the one we are trying to update
-        if (updateHistory && !(history.state && history.state.path == path)) {
-            let state = {
-                path: path,
-                type: "general"
-            };
-            if(history.state && history.state.path == state.path){
-
-            }
-            
-            if(replacePreviousHistoryState){
-                window.history.replaceState(state, "HCS", "/");
-            }
-            else{
-                window.history.pushState(state, "HCS", "/");
-            }
-        }
     }
 
 
@@ -295,7 +390,6 @@ class Interface {
             this.fileTableBody.removeChild(this.fileTableBody.firstChild);
         }
         this.fileTableBody.appendChild(this.cachedWaitingTableRow);
-        var trashFolder;
 
         if (!path) {
             //If path is undefined use the current synced directly
@@ -321,13 +415,36 @@ class Interface {
 
                 return;
             }
+            //Disable file upload button and add folder button
+            this.addFileBtn.disabled = true;
+            this.addFolderBtn.disabled = true;
+            this.inSpecialFolder = true; //Used to tell to other components that we are in a special folder
             //Change path and then load the file tree
-            path = tFolder.path;
+            path = tFolder.insideFolderPath;
             this.hcs.changeCurrentFolder(path, function (err, newPath) {
                 if (!err) {
-                    this.hcs.requestFileTree(newPath, 1, function(err,fileTree){
-                        this.buildFileTree(err,fileTree,true,true,true,undefined,{$hcs$trash: "Recycle Bin"});
+                    this.hcs.requestFileTree(newPath, 1, function (err, fileTree) {
+                        this.buildFileTree(err, fileTree, true, true, true, undefined, { $hcs$trash: "Recycle Bin" }, { canShare: false });
                     }.bind(this));
+
+                    //Update the history state if requested and also if the last state is not the same as the one we are trying to update
+                    if (updateHistory && !(history.state && history.state.path == newPath)) {
+                        let state = {
+                            path: newPath,
+                            type: "trash"
+                        };
+                        if (history.state && history.state.path == state.path) {
+                            return;
+                        }
+
+                        if (replacePreviousHistoryState) {
+                            window.history.replaceState(state, "HCS", "/");
+                        }
+                        else {
+                            window.history.pushState(state, "HCS", "/");
+                        }
+                        console.log("Updating history with " + state.path);
+                    }
                 }
                 else {
                     //Must be a server internal error because it's sure that there is a trash folder
@@ -341,24 +458,158 @@ class Interface {
                 }
             }.bind(this));
         }.bind(this));
+    }
 
-        //Update the history state if requested and also if the last state is not the same as the one we are trying to update
-        if (updateHistory && !(history.state && history.state.path == path)) {
-            let state = {
-                path: path,
-                type: "general"
-            };
-            if(history.state && history.state.path == state.path){
-
-            }
-            
-            if(replacePreviousHistoryState){
-                window.history.replaceState(state, "HCS", "/");
-            }
-            else{
-                window.history.pushState(state, "HCS", "/");
-            }
+    openPublicShareFolder(path, updateHistory = true, replacePreviousHistoryState = false) {
+        //Clear the table and show a loading indication
+        while (this.fileTableBody.firstChild) {
+            this.fileTableBody.removeChild(this.fileTableBody.firstChild);
         }
+        this.fileTableBody.appendChild(this.cachedWaitingTableRow);
+
+        if (!path) {
+            //If path is undefined use the current synced directly
+            path = this.hcs.currentFolder;
+        }
+        this.hcs.requestPublicShareFolder(path, function (err, pFolder) {
+            //Error handling
+            if (err) {
+                var data = {
+                    message: "Error opening the public share folder",
+                    actionHandler: function (event) { this.openPublicShareFolder(path, false) }.bind(this),
+                    actionText: 'Retry',
+                    timeout: 3000
+                };
+                this.notification.MaterialSnackbar.showSnackbar(data);                    
+                //Clear the table and show an error indication
+                while (this.fileTableBody.firstChild) {
+                    this.fileTableBody.removeChild(this.fileTableBody.firstChild);
+                }
+                //Upgrading the element for MDL rendering
+                window.componentHandler.upgradeElements(this.cachedErrorTableRow);
+                this.fileTableBody.appendChild(this.cachedErrorTableRow);
+
+                return;
+            }
+            //Disable file upload button and add folder button
+            this.addFileBtn.disabled = true;
+            this.addFolderBtn.disabled = true;
+            this.inSpecialFolder = true; //Used to tell to other components that we are in a special folder
+            //Change path and then load the file tree
+            path = pFolder.insideFolderPath;
+            this.hcs.changeCurrentFolder(path, function (err, newPath) {
+                if (!err) {
+                    this.hcs.requestFileTree(newPath, 1, function(err,fileTree){
+                        this.buildFileTree(err,fileTree,true,true,true,undefined,{$hcs$publicshare: "Public Share"},{canShare: false});
+                    }.bind(this));
+                    
+                    //Update the history state if requested and also if the last state is not the same as the one we are trying to update
+                    if (updateHistory && !(history.state && history.state.path == newPath)) {
+                        let state = {
+                            path: newPath,
+                            type: "publicshare"
+                        };
+                        if (history.state && history.state.path == state.path) {
+                            return;
+                        }
+
+                        if (replacePreviousHistoryState) {
+                            window.history.replaceState(state, "HCS", "/");
+                        }
+                        else {
+                            window.history.pushState(state, "HCS", "/");
+                        }
+                        console.log("Updating history with " + state.path);
+                    }
+                }
+                else {
+                    //Must be a server internal error because it's sure that there is a public share folder
+                    var data = {
+                        message: "Error: " + err,
+                        actionHandler: function (event) { this.openPublicShareFolder(path, false) }.bind(this),
+                        actionText: 'Retry',
+                        timeout: 3000
+                    };
+                    this.notification.MaterialSnackbar.showSnackbar(data);
+                }
+            }.bind(this));
+        }.bind(this));
+    }
+
+    openLinkShareFolder(path, updateHistory = true, replacePreviousHistoryState = false) {
+        //Clear the table and show a loading indication
+        while (this.fileTableBody.firstChild) {
+            this.fileTableBody.removeChild(this.fileTableBody.firstChild);
+        }
+        this.fileTableBody.appendChild(this.cachedWaitingTableRow);
+
+        if (!path) {
+            //If path is undefined use the current synced directly
+            path = this.hcs.currentFolder;
+        }
+        this.hcs.requestLinkShareFolder(path, function (err, pFolder) {
+            //Error handling
+            if (err) {
+                var data = {
+                    message: "Error opening the link share folder",
+                    actionHandler: function (event) { this.openLinkShareFolder(path, false) }.bind(this),
+                    actionText: 'Retry',
+                    timeout: 3000
+                };
+                this.notification.MaterialSnackbar.showSnackbar(data);                    
+                //Clear the table and show an error indication
+                while (this.fileTableBody.firstChild) {
+                    this.fileTableBody.removeChild(this.fileTableBody.firstChild);
+                }
+                //Upgrading the element for MDL rendering
+                window.componentHandler.upgradeElements(this.cachedErrorTableRow);
+                this.fileTableBody.appendChild(this.cachedErrorTableRow);
+
+                return;
+            }
+            //Disable file upload button and add folder button
+            this.addFileBtn.disabled = true;
+            this.addFolderBtn.disabled = true;
+            this.inSpecialFolder = true; //Used to tell to other components that we are in a special folder
+            //Change path and then load the file tree
+            path = pFolder.insideFolderPath;
+            this.hcs.changeCurrentFolder(path, function (err, newPath) {
+                if (!err) {
+                    this.hcs.requestFileTree(newPath, 1, function(err,fileTree){
+                        this.buildFileTree(err,fileTree,true,true,true,undefined,{$hcs$linkshare: "Link Share"},{canShare: false});
+                    }.bind(this));
+                    
+                    //Update the history state if requested and also if the last state is not the same as the one we are trying to update
+                    if (updateHistory && !(history.state && history.state.path == newPath)) {
+                        let state = {
+                            path: newPath,
+                            type: "linkshare"
+                        };
+                        if (history.state && history.state.path == state.path) {
+                            return;
+                        }
+
+                        if (replacePreviousHistoryState) {
+                            window.history.replaceState(state, "HCS", "/");
+                        }
+                        else {
+                            window.history.pushState(state, "HCS", "/");
+                        }
+                        console.log("Updating history with " + state.path);
+                    }
+                }
+                else {
+                    //Must be a server internal error because it's sure that there is a public share folder
+                    var data = {
+                        message: "Error: " + err,
+                        actionHandler: function (event) { this.openPublicShareFolder(path, false) }.bind(this),
+                        actionText: 'Retry',
+                        timeout: 3000
+                    };
+                    this.notification.MaterialSnackbar.showSnackbar(data);
+                }
+            }.bind(this));
+        }.bind(this));
     }
 
 
@@ -414,14 +665,15 @@ class Interface {
      * Build the table for the file tree
      * @param {String} err - The error returned by the server
      * @param {FileTree} fileTree - The FileTree returned by the server
-     * @param {boolean} updateFTState - True if this.fileTree should be updated
-     * @param {boolean} printFolders - True if folders should be shown
-     * @param {boolean} printFiles - True if files should be shown
-     * @param {String} customArrowPath - A custom path shown with one arrow for each folcer
-     * @param {Object} arrowPathReplacements - A dictionary with a value replacement for some folder names in the arrow path@param {String} customArrowPath - A custom path shown with one arrow for each folcer
-     * @param {Object} arrowPathReplacements - A dictionary with a value replacement for some folder names in the arrow path
+     * @param {boolean} [updateFTState = true] - True if this.fileTree should be updated
+     * @param {boolean} [printFolders = true] - True if folders should be shown
+     * @param {boolean} [printFiles = true]  - True if files should be shown
+     * @param {String} [customArrowPath] - A custom path shown with one arrow for each folcer
+     * @param {Object} [arrowPathReplacements] - A dictionary with a value replacement for some folder names in the arrow path
+     * @param {Object} [options] - An option container
+     * @param {Boolean} [options.canShare = true] - Sets the share buttons in the info dialog enabled or disabled 
      */
-    buildFileTree(err, fileTree, updateFTState = true, printFolders = true, printFiles = true, customArrowPath, arrowPathReplacements = {}) {
+    buildFileTree(err, fileTree, updateFTState = true, printFolders = true, printFiles = true, customArrowPath, arrowPathReplacements = {}, options = {}) {
         if(updateFTState) this.fileTree = fileTree;
         //Remove all child nodes present at this moment
         while (this.fileTableBody.firstChild) {
@@ -473,7 +725,7 @@ class Interface {
                 tdInfo.appendChild(rightIconDiv);
                 tdInfo.onclick = function (event) {
                     event.stopPropagation();
-                    this.showFileInfo(dir,tr);
+                    this.showFileInfo(dir,tr,options.canShare);
                 }.bind(this);
 
                 tr.appendChild(tdName);
@@ -539,7 +791,7 @@ class Interface {
                 tdInfo.appendChild(rightIconDiv);
                 tdInfo.onclick = function (event) {
                     event.stopPropagation();
-                    this.showFileInfo(file, tr);
+                    this.showFileInfo(file, tr,options.canShare);
                 }.bind(this);
 
                 tr.appendChild(tdName);
@@ -562,10 +814,11 @@ class Interface {
      * @param {boolean} printFolders - True if folders should be shown
      * @param {boolean} printFiles - True if files should be shown
      * @param {String} customArrowPath - A custom path shown with one arrow for each folcer
-     * @param {Object} arrowPathReplacements - A dictionary with a value replacement for some folder names in the arrow path@param {String} customArrowPath - A custom path shown with one arrow for each folcer
      * @param {Object} arrowPathReplacements - A dictionary with a value replacement for some folder names in the arrow path
+     * @param {Object} [options] - An option container
+     * @param {Boolean} [options.canShare = true] - Sets the share buttons in the info dialog enabled or disabled
      */
-    buildFileTreeByName(err, fileTree, updateFTState = true, printFolders = true, printFiles = true, customArrowPath, arrowPathReplacements = {}) {
+    buildFileTreeByName(err, fileTree, updateFTState = true, printFolders = true, printFiles = true, customArrowPath, arrowPathReplacements = {}, options = {}) {
         if(updateFTState) this.fileTree = fileTree;
         //Remove all child nodes present at this moment
         while (this.fileTableBody.firstChild) {
@@ -620,7 +873,7 @@ class Interface {
                 tdInfo.appendChild(rightIconDiv);
                 tdInfo.onclick = function (event) {
                     event.stopPropagation();
-                    this.showFileInfo(dir,tr);
+                    this.showFileInfo(dir,tr,options.canShare);
                 }.bind(this);
 
                 tr.appendChild(tdName);
@@ -686,7 +939,7 @@ class Interface {
                 tdInfo.appendChild(rightIconDiv);
                 tdInfo.onclick = function (event) {
                     event.stopPropagation();
-                    this.showFileInfo(file, tr);
+                    this.showFileInfo(file, tr,options.canShare);
                 }.bind(this);
 
                 tr.appendChild(tdName);
@@ -717,7 +970,7 @@ class Interface {
     }
 
 
-    showFileInfo(file,tr) {
+    showFileInfo(file,tr,canShare = true) {
         document.title = file.name;
         let i = this.infoDialog;
         i.titleLable.innerText = file.name;
@@ -824,17 +1077,86 @@ class Interface {
             }
         }.bind(this);
 
+        if (canShare == true) {
+            //Enable buttons if they have been disabled by previous calls
+            i.publicShareBtn.removeAttribute("disabled");
+            i.linkShareBtn.removeAttribute("disabled");
+
+            i.publicShareBtn.onclick = function () {
+                this.hcs.shareFilePublic(file.path, function (err) {
+                    if (err) {
+
+                        var data = {
+                            message: `Error sharing ${file.name}: ${err} `,
+                            actionHandler: function (event) { this.click() }.bind(i.publicShareBtn),
+                            actionText: 'Retry',
+                            timeout: 3000
+                        };
+                        this.notification.MaterialSnackbar.showSnackbar(data);
+                    }
+                    else {
+
+                        var data = {
+                            message: `${file.name} shared`,
+                            timeout: 3000
+                        };
+                        //Close the dialog
+                        document.title = "HCS";
+                        this.infoDialog.close();
+                        this.notification.MaterialSnackbar.showSnackbar(data);
+
+                    }
+                }.bind(this));
+            }.bind(this);
+
+            i.linkShareBtn.onclick = function(){
+                this.hcs.shareFileLink(file.path,function(err,link){
+                    if (err) {
+
+                        var data = {
+                            message: `Error sharing ${file.name}: ${err} `,
+                            actionHandler: function (event) { this.click() }.bind(i.linkShareBtn),
+                            actionText: 'Retry',
+                            timeout: 3000
+                        };
+                        this.notification.MaterialSnackbar.showSnackbar(data);
+                    }
+                    else {
+
+                        var data = {
+                            message: `${file.name} shared - Link: ${document.location.origin + link}`,
+                            timeout: 15000
+                        };
+                        //Close the dialog
+                        document.title = "HCS";
+                        this.infoDialog.close();
+                        this.notification.MaterialSnackbar.showSnackbar(data);
+
+                    }
+                }.bind(this));
+            }.bind(this);
+        }
+        else{
+            i.publicShareBtn.setAttribute("disabled","true");
+            i.linkShareBtn.setAttribute("disabled","true");
+        }
+
         i.showModal();
     }
 
     uploadFile(files) {
+        if(!files || files.length < 1){
+            return;
+        }
         //Show the progress bar and lock the add button first
         this.bottomProgressBar.style.display = "";
         this.addFileBtn.setAttribute("disabled", "true");
+        this.isUploadingFile = true;
         //Grab a reference to the files name
         var filesName = files[0].name;
         filesName += (files.length > 1) ? ` + ${files.length - 1} more` : "";
         //And then start uploading the file
+        console.log("Started uploding " + filesName);
         this.hcs.uploadFile("./", files,
             function (perc) {
                 //Every time a new percentage of uploading is calculated, update the progressbar
@@ -846,7 +1168,7 @@ class Interface {
                 }
 
             }.bind(this),
-            function (err) {
+            function (err,filePath) {
                 if (err) {
                     //Show the toast to notify upload error
                     var data = {
@@ -868,8 +1190,9 @@ class Interface {
                 this.bottomProgressBar.classList.remove("mdl-progress--indeterminate");
                 //Reload the folder
                 this.openFolder(undefined, false);
-                //Unlock the addFile button
-                this.addFileBtn.removeAttribute("disabled");
+                //Unlock the addFile button if not in a special folder
+                if(!this.inSpecialFolder) this.addFileBtn.removeAttribute("disabled");
+                this.isUploadingFile = false;
 
             }.bind(this)
         );

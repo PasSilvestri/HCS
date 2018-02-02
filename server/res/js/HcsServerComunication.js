@@ -262,6 +262,82 @@ class HcsServerInterface {
         xhttp.send();
     }
 
+    requestPublicShareFolder(path,callback){
+        if(typeof path != "string"){
+            throw "Path needs to be a string";
+        }
+        var xhttp = new XMLHttpRequest();
+        xhttp.onreadystatechange = function () {
+            if (this.readyState == 4 && this.status == 200) {
+                if(callback) callback(undefined,JSON.parse(this.responseText));
+            }
+            else if(this.readyState == 4 && this.status != 200){
+                if(callback) callback(this.responseText);
+            }
+        };
+        //Encode the path so that is parsed correctelly server-side
+        path = encodeURIComponent(path);
+        xhttp.open("GET", `/files?req=publicsharefolderinfo&path=${path}`, true);
+        xhttp.send();
+    }
+
+    requestLinkShareFolder(path,callback){
+        if(typeof path != "string"){
+            throw "Path needs to be a string";
+        }
+        var xhttp = new XMLHttpRequest();
+        xhttp.onreadystatechange = function () {
+            if (this.readyState == 4 && this.status == 200) {
+                if(callback) callback(undefined,JSON.parse(this.responseText));
+            }
+            else if(this.readyState == 4 && this.status != 200){
+                if(callback) callback(this.responseText);
+            }
+        };
+        //Encode the path so that is parsed correctelly server-side
+        path = encodeURIComponent(path);
+        xhttp.open("GET", `/files?req=linksharefolderinfo&path=${path}`, true);
+        xhttp.send();
+    }
+
+    shareFilePublic(path,callback){
+        if(typeof path != "string"){
+            throw "Path needs to be a string";
+        }
+        var xhttp = new XMLHttpRequest();
+        xhttp.onreadystatechange = function () {
+            if (this.readyState == 4 && this.status == 200) {
+                if(callback) callback(undefined);
+            }
+            else if(this.readyState == 4 && this.status != 200){
+                if(callback) callback(this.responseText);
+            }
+        };
+        //Encode the path so that is parsed correctelly server-side
+        path = encodeURIComponent(path);
+        xhttp.open("GET", `/files?req=publicsharefile&path=${path}`, true);
+        xhttp.send();
+    }
+
+    shareFileLink(path,callback){
+        if(typeof path != "string"){
+            throw "Path needs to be a string";
+        }
+        var xhttp = new XMLHttpRequest();
+        xhttp.onreadystatechange = function () {
+            if (this.readyState == 4 && this.status == 200) {
+                if(callback) callback(undefined,this.responseText);
+            }
+            else if(this.readyState == 4 && this.status != 200){
+                if(callback) callback(this.responseText);
+            }
+        };
+        //Encode the path so that is parsed correctelly server-side
+        path = encodeURIComponent(path);
+        xhttp.open("GET", `/files?req=linksharefile&path=${path}`, true);
+        xhttp.send();
+    }
+
     uploadFile(path,files,loadingCallback,doneCallback){
         if(!(files instanceof Array) && !(files instanceof FileList)){
             files = [files];
