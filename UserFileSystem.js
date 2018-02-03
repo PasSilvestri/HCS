@@ -450,7 +450,7 @@ class UserFileSystem{
         //If shareType is LinkShare, a link in return is needed
         var shareLink;
         if(shareType == 2){
-            shareLink = `/linkshare/${this.username}?root=${path.substring(0,path.indexOf("/"))}&path=${filePathWORoot}`;
+            shareLink = `/linkshare?user=${this.username}&root=${path.substring(0,path.indexOf("/"))}&path=${filePathWORoot}`;
         }
         //First unlink any already present files
         fs.unlink(shareLoc,function(err){

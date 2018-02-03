@@ -6,6 +6,7 @@ var express = require("express");
 var SocketIo = require("socket.io");
 var bodyParser = require("body-parser");
 var fileUpload = require("express-fileupload");
+var postDataParser = require("./PostDataParser");
 var deleteFolderRecursive = require("./FileHandler").deleteFolderRecursive;
 var pasHtmlEngine = require("./PasHtmlEngine");
 var session = require("./beat-session");
@@ -113,11 +114,15 @@ app.set("view engine", "html");
 app.set("views", "./server/views");
 
 
+
 //Data parsers
 //app.use("/upload/file", bodyParser.raw());
+app.use(postDataParser());
+/*
 app.use(fileUpload());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
+*/
 
 //Check if the request carries a valid session token, and add it to the request for fast referencing
 app.use(session({
@@ -439,12 +444,15 @@ app.get("/files",function(req,res){
 		}
 	}
 	else {
-		res.redirect("login");
+		res.send("Need to login");
 	}
 	
 });
 app.post("/files",function(req,res){
-	
+	if (req[sessionName] == undefined || req[sessionName].logged != true) {
+		res.send("Need to login");
+		return;
+	}
 	//Send 545 "File required" if no file was sent, without doing any additional useless work
 	if(!req.files.files){
 		res.status(545).end("File required");
@@ -465,9 +473,9 @@ app.post("/files",function(req,res){
 		}
 		var fileIndex = 0;
 		for(let file of req.files.files){
-			console.log(`${username} is writing file: ${ufs.resolve(pathString+"/"+file.name)}`);
+			console.log(`${username} is writing file: ${ufs.resolve(pathString+"/"+file.name,true)}`);
 			ufsPath = ufs.getMachinePath(pathString+"/"+file.name);
-			file.mv(ufsPath,(err)=> {
+			file.move(ufsPath,(err)=> {
 				if(err){
 					res.sendStatus(500);
 					fileIndex = -1;
@@ -481,6 +489,28 @@ app.post("/files",function(req,res){
 	}
 	else{
 		res.sendStatus(404);
+	}
+});
+
+app.get("/linkshare",function(req,res){
+	let username = req.query.user;
+	let root = req.query.root;
+	let path = req.query.path;
+	
+	if(!username || !root || !path){
+		res.sendFile(path.join(__dirname, "server", "views", "error404.html"));
+		return;
+	}
+	
+	let userData = userManager.getUserData(username,true);
+	let ufs = getUserFileSystemFromUserData(userData);
+
+	let fullPath = ufs.resolve(root+"/$hcs$linkshare/"+path,true);
+	if(ufs.existsSync(fullPath,true)){
+		res.sendFile(ufs.getMachinePath(fullPath));
+	}
+	else{
+		res.sendFile(path.join(__dirname, "server", "views", "error404.html"));
 	}
 });
 

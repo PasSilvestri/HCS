@@ -1080,8 +1080,11 @@ class Interface {
         if (canShare == true) {
             //Enable buttons if they have been disabled by previous calls
             i.publicShareBtn.removeAttribute("disabled");
-            i.linkShareBtn.removeAttribute("disabled");
-
+            //If is not a folder (classIndex 1 == Folder)
+            if(file.classIndex != 1){
+                i.linkShareBtn.removeAttribute("disabled");
+            }
+            
             i.publicShareBtn.onclick = function () {
                 this.hcs.shareFilePublic(file.path, function (err) {
                     if (err) {
@@ -1125,7 +1128,9 @@ class Interface {
 
                         var data = {
                             message: `${file.name} shared - Link: ${document.location.origin + link}`,
-                            timeout: 15000
+                            actionHandler: function(event) { this.notification.MaterialSnackbar.cleanup_()}.bind(this),
+                            actionText: 'Close',
+                            timeout: (1000*60)
                         };
                         //Close the dialog
                         document.title = "HCS";

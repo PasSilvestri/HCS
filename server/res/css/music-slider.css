@@ -1,7 +1,10 @@
 input[type=range].music-slider {
     -webkit-appearance: none;
     width: 100%;
-    margin: 7.5px 0;
+    position: absolute;
+    top: 0;
+    left: -2px;
+    z-index: 2;
   }
   input[type=range].music-slider:focus {
     outline: none;
@@ -21,7 +24,7 @@ input[type=range].music-slider {
     height: 15px;
     width: 15px;
     border-radius: 50px;
-    background: #ffffff;
+    background: rgb(33,150,243);
     cursor: pointer;
     -webkit-appearance: none;
     margin-top: -7.5px;
@@ -44,7 +47,7 @@ input[type=range].music-slider {
     height: 15px;
     width: 15px;
     border-radius: 50px;
-    background: #ffffff;
+    background: rgb(33,150,243);
     cursor: pointer;
   }
   input[type=range].music-slider::-ms-track {
@@ -73,7 +76,7 @@ input[type=range].music-slider {
     height: 15px;
     width: 15px;
     border-radius: 50px;
-    background: #ffffff;
+    background: rgb(33,150,243);
     cursor: pointer;
     height: 0px;
   }
