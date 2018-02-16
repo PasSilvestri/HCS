@@ -103,6 +103,30 @@ class HcsServerInterface {
         xhttp.send();
     }
 
+    requestSearchFileTree(path,searchString,callback) {
+        if(typeof level == "function"){
+            callback = level;
+            level = 1;
+        }
+        if(typeof path != "string"){
+            throw "Path needs to be a string";
+        }
+        var xhttp = new XMLHttpRequest();
+        xhttp.onreadystatechange = function () {
+            if (this.readyState == 4 && this.status == 200) {
+                var fileTree = JSON.parse(xhttp.responseText);
+                if(callback) callback(undefined,fileTree);
+            }
+            else if(this.readyState == 4 && this.status != 200){
+                if(callback) callback(this.response);
+            }
+        };
+        //Encode the path so that is parsed correctelly server-side
+        path = encodeURIComponent(path);
+        xhttp.open("GET", `/files?req=search&path=${path}&match=${searchString}`, true);
+        xhttp.send();
+    }
+
     requestFile(path,loadingCallback,doneCallback){
         if(typeof path != "string"){
             throw "Path needs to be a string";

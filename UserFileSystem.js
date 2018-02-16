@@ -180,6 +180,79 @@ class UserFileSystem{
         return fileTree;
     }
 
+     /**
+     * Returns a file tree starting from the folder spcified or the current folder if not specified, with just the files matching
+     * @param {String} searchString - The string to match
+     * @param {String} [path = currentFolder] - The path to analize
+     * @returns {FileTree} - The file tree for the folder 
+     */
+    getSearchFileTree(searchString = "",pathString){
+        searchString = searchString.trim().replace(/\s+/g," ").toLowerCase();
+        if(!pathString){
+            pathString = this.currentMachineFolder;
+        }
+        
+
+        let fileList;
+        try{
+            pathString = this.resolve(pathString+"/");
+            if(!pathString){
+                //Error: Path doesn't exists
+                throw new UserFileSystemError(2,pathString);
+            }
+            fileList = fs.readdirSync(pathString);
+        }
+        catch(err){
+            console.log(err);
+            //If some error occured, if is not a UserFileSystem error let's wrap it into one and send it to the client
+            if(!err instanceof UserFileSystemError){
+                //Error: Error wrapper for another node.js error
+                err = new UserFileSystemError(0,err);
+            }
+            let nullFileTree = new FileTree(pathString,pathString);
+            nullFileTree.setError(err);
+            return nullFileTree;
+        }
+
+        var fileTree = new FileTree(pathString,this.getHCSPath(pathString));
+        var dirToVisit = [];
+        for(let f of fileList){
+            //All files and folders starting with $hcs$ are HCS system files/folders
+            //All files and folders starting with #sec# are secret files/folders
+            if(f.startsWith("$hcs$") || f.startsWith("#sec#")){
+                continue;
+            }
+            let pa = path.join(pathString,f);
+            let stat = fs.lstatSync(pa);
+            let fileFormattedName = f.toLowerCase().replace(/\s+/g," ");
+            if(stat.isDirectory()){
+                dirToVisit.push(pa);
+                if(fileFormattedName.includes(searchString)){
+                    let fsObject = new HCSDirectory(pa,this.getHCSPath(pa),stat.size);
+                    fileTree.addDirectory(fsObject);
+                }
+            }
+            else if(fileFormattedName.includes(searchString)){
+                if(stat.isFile()){
+                    let fsObject = new HCSFile(pa,this.getHCSPath(pa),stat.size,mime.getType(pa),stat.mtimeMs);
+                    fileTree.addFile(fsObject);
+                }
+                else if(stat.isSymbolicLink()){
+                    let fsObject = new HCSSymLink(pa,this.getHCSPath(pa));
+                    fileTree.addLink(fsObject);
+                }
+            }
+        }
+
+        //If is negative will go on until the bottom of the file tree
+        for (let subDir of dirToVisit) {
+            let subFileTree = this.getSearchFileTree(searchString, subDir);
+            fileTree.merge(subFileTree);
+        }
+        
+        return fileTree;
+    }
+
     /**
      * Calculate recursivelly the size of a folder. If the pathString indicates a file, the file size is returned
      * @param {String} pathString - The path of the folder

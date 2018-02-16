@@ -407,6 +407,41 @@ app.get("/files",function(req,res){
 					res.status(542).send("Folder path required");
 				}
 				return;
+			case "search":
+				//Check if the path exists
+				var stat;
+				try{
+					stat = ufs.statSync(req.query.path);
+				}
+				catch(err){
+					res.sendStatus(404);
+					return;
+				}
+				//If the path exists deliver what was requested
+				if(stat.isDirectory){
+					var fileTree;
+					try{
+						fileTree = ufs.getSearchFileTree(req.query.match,ufs.getMachinePath(req.query.path));
+					}
+					catch(err){
+						//Check what error was and send the appropriate response (look the code of the error inside UserFileSystem.js)
+						//Just to be sure, better reset fileTree to undefined
+						fileTree = undefined;
+						if(err.errorNumber == 2){
+							res.sendStatus(404);
+						}
+						else{
+							res.sendStatus(500);
+						}
+					}
+					//Send the file tree if no errors occured (so if fileTree != undefined)
+					res.setHeader("Cache-Control","no-cache, no-store, must-revalidate");
+					if(fileTree) res.send(JSON.stringify(fileTree));
+				}
+				else{
+					res.status(542).send("Folder path required");
+				}
+				return;
 			//Default returns a file tree, even if the path requested is a file path
 			default:
 				//Check if the path exists

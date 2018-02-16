@@ -17,6 +17,10 @@
 			background-color: rgba(0, 0, 0, 0.8);
 		}
 
+		.mdl-dialog__title{
+			word-wrap: break-word;
+		}
+
 		/* path arrows style */
 
 		#parentPathArrowContainer{
@@ -92,6 +96,9 @@
 		}
 
 		/* file table style */
+		.mdl-data-table{
+			white-space: pre-wrap;
+		}
 
 		.mdl-data-table__cell--non-numeric>.icon-cell_right {
 			width: 100%;
@@ -110,7 +117,6 @@
 		}
 
 		.mdl-data-table__cell--non-numeric>.icon-cell_left>span {
-			text-align: center;
 			margin-left: 5px;
 			text-overflow: ellipsis;
 		}
@@ -178,13 +184,6 @@
 			box-sizing: border-box;
 			padding: 3px;
 			padding-right: 6px;
-			-webkit-touch-callout: none; /* iOS Safari */
-			-webkit-user-select: none; /* Safari */
-			-khtml-user-select: none; /* Konqueror HTML */
-			-moz-user-select: none; /* Firefox */
-			-ms-user-select: none; /* Internet Explorer/Edge */
-			user-select: none; /* Non-prefixed version, currently
-								supported by Chrome and Opera */
 			display: flex;
 			flex-direction: row;
 			align-items: center;
@@ -212,7 +211,7 @@
 		
 		#musicPlayerDiv #musicName{
 			position: absolute;
-			top: -30px;
+			top: -40px;
 			left: 50%;
 			white-space: nowrap;	
 			text-overflow:ellipsis;
@@ -224,3 +223,25 @@
 		}
 
 		/* END footer style */
+
+
+		/* Animation */
+		.rotate {
+			-webkit-animation:spin 4s ease infinite;
+			-moz-animation:spin 4s ease infinite;
+			animation:spin 4s ease infinite;
+		}
+		@-moz-keyframes spin { 100% { -moz-transform: rotate(360deg); } }
+		@-webkit-keyframes spin { 100% { -webkit-transform: rotate(360deg); } }
+		@keyframes spin { 100% { -webkit-transform: rotate(360deg); transform:rotate(360deg); } }
+		/* END Animation */
+
+		.noselect {
+			-webkit-touch-callout: none; /* iOS Safari */
+			-webkit-user-select: none; /* Safari */
+			-khtml-user-select: none; /* Konqueror HTML */
+			-moz-user-select: none; /* Firefox */
+			-ms-user-select: none; /* Internet Explorer/Edge */
+			user-select: none; /* Non-prefixed version, currently
+								supported by Chrome and Opera */
+		}

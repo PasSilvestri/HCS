@@ -36,6 +36,12 @@ class FileTree{
         this.error = err;
     }
 
+    merge(fileTree){
+        this.dirList = this.dirList.concat(fileTree.dirList);
+        this.fileList = this.fileList.concat(fileTree.fileList);
+        this.linkList = this.linkList.concat(fileTree.linkList);
+    }
+
 }
 
 class HCSDirectory {
