@@ -46,7 +46,7 @@ class FileTree{
 
 class HCSDirectory {
 
-    constructor(machinePath,path,size,type = "General"){        
+    constructor(machinePath,path,size,type = "General",info = {}){        
         this.class = "HCSDirectory";
         this.classIndex = 1;
         this.machinePath = machinePath;
@@ -55,6 +55,10 @@ class HCSDirectory {
         this.name = nameParts[nameParts.length -1];
         this.size = size;
         this.type = type;
+        
+        for(let par in info){
+            this[par] = info[par];
+        }
     }
 
     setFileTree(fileTree){
@@ -64,7 +68,7 @@ class HCSDirectory {
 }
 
 class HCSFile {
-    constructor(machinePath,path,size,type,lastModified){
+    constructor(machinePath,path,size,type,lastModified,info = {}){
         this.class = "HCSFile";
         this.classIndex = 2;
         this.machinePath = machinePath;
@@ -74,6 +78,10 @@ class HCSFile {
         this.size = size;
         this.type = type;
         this.lastModified = lastModified;
+
+        for(let par in info){
+            this[par] = info[par];
+        }
     }
 
     setBuffer(buffer){
@@ -82,13 +90,17 @@ class HCSFile {
 }
 
 class HCSSymLink {
-    constructor(machinePath,path){
+    constructor(machinePath,path, info = {}){
         this.class = "HCSSymLink";
         this.classIndex = 3;
         this.machinePath = machinePath;
         this.path = path;
         let nameParts = path.split(/\\+|\/+/g);
         this.name = nameParts[nameParts.length -1];
+        
+        for(let par in info){
+            this[par] = info[par];
+        }
     }
 }
 

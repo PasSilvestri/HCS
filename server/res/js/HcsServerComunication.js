@@ -249,7 +249,7 @@ class HcsServerInterface {
     }
 
     requestMoveFile(path,newPath,callback){
-        if(typeof path != "string" || newPath != "string"){
+        if(typeof path != "string" || typeof newPath != "string"){
             throw "Path and newPath need to be strings";
         }
         var xhttp = new XMLHttpRequest();
@@ -264,6 +264,25 @@ class HcsServerInterface {
         //Encode the path so that is parsed correctelly server-side
         path = encodeURIComponent(path);
         xhttp.open("GET", `/files?req=move&path=${path}&newpath=${newPath}`, true);
+        xhttp.send();
+    }
+
+    requestCopyFile(path,newPath,callback){
+        if(typeof path != "string" || typeof newPath != "string"){
+            throw "Path and newPath need to be strings";
+        }
+        var xhttp = new XMLHttpRequest();
+        xhttp.onreadystatechange = function () {
+            if (this.readyState == 4 && this.status == 200) {
+                if(callback) callback();
+            }
+            else if(this.readyState == 4 && this.status != 200){
+                if(callback) callback(this.responseText);
+            }
+        };
+        //Encode the path so that is parsed correctelly server-side
+        path = encodeURIComponent(path);
+        xhttp.open("GET", `/files?req=copy&path=${path}&newpath=${newPath}`, true);
         xhttp.send();
     }
 
@@ -379,10 +398,30 @@ class HcsServerInterface {
         }
 
         var xhttp = new XMLHttpRequest();
+        xhttp.lastLoadedProgress = 0;
+        xhttp.lastTimeProgress = 0;
+        xhttp.progressUpdateCount = 0;
+        xhttp.sumUploadSpeed = 0;
         xhttp.upload.onprogress = function (event) {
             if (event.lengthComputable) {
+                //Calc the percentage uploded
                 var percentComplete = event.loaded / event.total;
-                if(loadingCallback) loadingCallback(percentComplete, event.loaded, event.total);
+
+                //Calc the upload speed and the remaining time
+                let now = performance.now();
+                let time = (now - xhttp.lastTimeProgress)/1000;
+                let bytes = event.loaded - xhttp.lastLoadedProgress;
+                let bytePerSecond = bytes / time;
+                xhttp.sumUploadSpeed = xhttp.sumUploadSpeed + bytePerSecond;
+                xhttp.progressUpdateCount++;
+                var uploadSpeed = xhttp.sumUploadSpeed/xhttp.progressUpdateCount;
+                let remainingData = event.total - event.loaded;
+                var remainingTime = remainingData / uploadSpeed;
+                //Updating info for next callback
+                xhttp.lastTimeProgress = now;
+                xhttp.lastLoadedProgress = event.loaded;
+
+                if(loadingCallback) loadingCallback(percentComplete, event.loaded, event.total, uploadSpeed, remainingTime);
             }
         }
         xhttp.onreadystatechange = function () {
@@ -395,6 +434,7 @@ class HcsServerInterface {
         };
         xhttp.open("POST", "/files", true);
         xhttp.send(formData);
+        xhttp.lastTimeProgress = performance.now();
 
     }
 }

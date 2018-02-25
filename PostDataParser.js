@@ -4,9 +4,10 @@ var os = require("os");
 var Busboy = require("busboy");
 const uuidv4 = require('uuid/v4');
 
+var tempDataFolder = path.join(__dirname, "PostDataParser");
 
 var getMiddleware = function(options){
-    fs.mkdir(path.join(os.tmpdir(), "PostDataParser"),(err)=>{
+    fs.mkdir(tempDataFolder,(err)=>{
         if(err && err.code != "EEXIST"){
             console.log("PostDataParser error:");
             console.log(err);
@@ -28,10 +29,31 @@ var parseBody = function (options = {}, req, res, next) {
     busboy.on('file', function (fieldname, stream, filename, encoding, mimetype) {
         console.log(`Receiving file ${filename}[${fieldname}]`);
         req.files = req.files || {};
-        var tempPath = path.join(os.tmpdir(), "PostDataParser", (uuidv4()+fieldname));
+        var tempPath = path.join(tempDataFolder, (uuidv4()+fieldname));
         var wStream = fs.createWriteStream(tempPath);
+
+        var inDownloadTimer;
+        //Set a timeout every 2min, if no data is received in 2min, the download was interrupted
+        inDownloadTimer = setTimeout(function(){
+            fs.unlinkSync(tempPath);
+            wStream.close();
+        },1000*60*2);
+        stream.on("data",function(){
+            console.log("Data of " + filename);
+            //Set a timeout every 2min, if no data is received in 2min, the download was interrupted
+            clearTimeout(inDownloadTimer);
+            inDownloadTimer = setTimeout(function(){
+                console.log("Data missing")
+                fs.unlinkSync(tempPath);
+                wStream.close();
+            },1000*60*2);
+        });
+
         stream.pipe(wStream);
         stream.on('end', function () {
+            //The file was downloaded, so clearing the timeout
+            clearTimeout(inDownloadTimer);
+
             let value = new PostFile(1000*60*60,tempPath,filename,mimetype,encoding);
             //If the field doesn't exists, fill it in
             if (!req.files[fieldname]) {
@@ -45,6 +67,8 @@ var parseBody = function (options = {}, req, res, next) {
             else {
                 req.files[fieldname] = [req.files[fieldname], value];
             }
+            //Lets close the stream
+            wStream.end();
         });
 
     });

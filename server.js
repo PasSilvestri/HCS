@@ -220,8 +220,8 @@ app.get("/files",function(req,res){
 		//Finding what request it was
 		switch(req.query.req){
 			case "stat":
+				res.setHeader("Cache-Control","no-cache, no-store, must-revalidate");
 				ufs.stat(req.query.path,(err,stat) => {
-					res.setHeader("Cache-Control","no-cache, no-store, must-revalidate");
 					if(err) 
 						res.sendStatus(404);
 					else
@@ -229,6 +229,7 @@ app.get("/files",function(req,res){
 				});
 				return;
 			case "createfolder":
+				res.setHeader("Cache-Control","no-cache, no-store, must-revalidate");
 				ufs.createFolder(req.query.path,(err) => {
 					res.setHeader("Cache-Control","no-cache, no-store, must-revalidate");
 					if(err) 
@@ -238,8 +239,19 @@ app.get("/files",function(req,res){
 				});
 				return;
 			case "move":
+				res.setHeader("Cache-Control","no-cache, no-store, must-revalidate");
 				ufs.moveFile(req.query.path,req.query.newpath,(err)=>{
-					res.setHeader("Cache-Control","no-cache, no-store, must-revalidate");
+					if(err){
+						res.sendStatus(500);
+					}
+					else{
+						res.sendStatus(200);
+					}
+				});
+				return;
+			case "copy":
+				res.setHeader("Cache-Control","no-cache, no-store, must-revalidate");
+				ufs.copyFile(req.query.path,req.query.newpath,(err)=>{
 					if(err){
 						res.sendStatus(500);
 					}
@@ -260,8 +272,8 @@ app.get("/files",function(req,res){
 				}
 				return;
 			case "calcfoldersize":
+				res.setHeader("Cache-Control","no-cache, no-store, must-revalidate");
 				ufs.calculateFolderSize(req.query.path,true,function(err,size){
-					res.setHeader("Cache-Control","no-cache, no-store, must-revalidate");
 					if(err) 
 						res.status(500).send(err.toString());
 					else 
@@ -282,8 +294,8 @@ app.get("/files",function(req,res){
 				res.send(JSON.stringify(trash));
 				return;
 			case "delete":
+				res.setHeader("Cache-Control","no-cache, no-store, must-revalidate");
 				ufs.deleteFile(req.query.path,function(err){
-					res.setHeader("Cache-Control","no-cache, no-store, must-revalidate");
 					if(err) 
 						res.status(500).send(err.toString());
 					else 
@@ -301,6 +313,7 @@ app.get("/files",function(req,res){
 				res.send(JSON.stringify(lShareFolder));
 				return;
 			case "publicsharefile":
+				res.setHeader("Cache-Control","no-cache, no-store, must-revalidate");
 				//Check if the path exists
 				var stat;
 				try{
@@ -313,7 +326,6 @@ app.get("/files",function(req,res){
 				//If the path exists deliver what was requested
 				if(stat.isFile){
 					ufs.shareFile(req.query.path,1, function(err){
-						res.setHeader("Cache-Control","no-cache, no-store, must-revalidate");
 						if(err){
 							res.status(500).send(err.name);
 						}
@@ -327,6 +339,7 @@ app.get("/files",function(req,res){
 				}
 				return;
 			case "linksharefile":
+				res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
 				//Check if the path exists
 				var stat;
 				try {
@@ -339,7 +352,6 @@ app.get("/files",function(req,res){
 				//If the path exists deliver what was requested
 				if (stat.isFile) {
 					ufs.shareFile(req.query.path, 2, function (err,link) {
-						res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
 						if (err) {
 							res.status(500).send(err.name);
 						}
@@ -353,6 +365,7 @@ app.get("/files",function(req,res){
 				}
 				return;
 			case "file":
+				res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
 				//Check if the path exists
 				var stat;
 				try{
@@ -373,6 +386,8 @@ app.get("/files",function(req,res){
 				}
 				return;
 			case "filetree":
+				//Set the cache-control so that the browser doesn't cache the response
+				res.setHeader("Cache-Control","no-cache, no-store, must-revalidate");
 				//Check if the path exists
 				var stat;
 				try{
@@ -387,11 +402,10 @@ app.get("/files",function(req,res){
 					var fileTree;
 					try{
 						fileTree = ufs.getFileTree(req.query.level,ufs.getMachinePath(req.query.path));
+						res.send(JSON.stringify(fileTree));
 					}
 					catch(err){
 						//Check what error was and send the appropriate response (look the code of the error inside UserFileSystem.js)
-						//Just to be sure, better reset fileTree to undefined
-						fileTree = undefined;
 						if(err.errorNumber == 2){
 							res.sendStatus(404);
 						}
@@ -399,15 +413,13 @@ app.get("/files",function(req,res){
 							res.sendStatus(500);
 						}
 					}
-					//Send the file tree if no errors occured (so if fileTree != undefined)
-					res.setHeader("Cache-Control","no-cache, no-store, must-revalidate");
-					if(fileTree) res.send(JSON.stringify(fileTree));
 				}
 				else{
 					res.status(542).send("Folder path required");
 				}
 				return;
 			case "search":
+				res.setHeader("Cache-Control","no-cache, no-store, must-revalidate");
 				//Check if the path exists
 				var stat;
 				try{
@@ -422,11 +434,10 @@ app.get("/files",function(req,res){
 					var fileTree;
 					try{
 						fileTree = ufs.getSearchFileTree(req.query.match,ufs.getMachinePath(req.query.path));
+						res.send(JSON.stringify(fileTree));
 					}
 					catch(err){
 						//Check what error was and send the appropriate response (look the code of the error inside UserFileSystem.js)
-						//Just to be sure, better reset fileTree to undefined
-						fileTree = undefined;
 						if(err.errorNumber == 2){
 							res.sendStatus(404);
 						}
@@ -434,9 +445,6 @@ app.get("/files",function(req,res){
 							res.sendStatus(500);
 						}
 					}
-					//Send the file tree if no errors occured (so if fileTree != undefined)
-					res.setHeader("Cache-Control","no-cache, no-store, must-revalidate");
-					if(fileTree) res.send(JSON.stringify(fileTree));
 				}
 				else{
 					res.status(542).send("Folder path required");
@@ -444,37 +452,8 @@ app.get("/files",function(req,res){
 				return;
 			//Default returns a file tree, even if the path requested is a file path
 			default:
-				//Check if the path exists
-				var stat;
-				try{
-					stat = ufs.statSync(req.query.path);
-				}
-				catch(err){
-					res.sendStatus(404);
-					return;
-				}
-				//If the path exists deliver what was requested
-				if(!stat.isDirectory){
-					req.query.path = req.query.path.substring(0,req.query.path.lastIndexOf("/"));
-				}
-				var fileTree;
-				try {
-					fileTree = ufs.getFileTree(req.query.level, ufs.getMachinePath(req.query.path));
-				}
-				catch (err) {
-					//Check what error was and send the appropriate response (look the code of the error inside UserFileSystem.js)
-					//Just to be sure, better reset fileTree to undefined
-					fileTree = undefined;
-					if (err.errorNumber == 2) {
-						res.sendStatus(404);
-					}
-					else {
-						res.sendStatus(500);
-					}
-				}
-				//Send the file tree if no errors occured
 				res.setHeader("Cache-Control","no-cache, no-store, must-revalidate");
-				if (fileTree) res.send(JSON.stringify(fileTree));
+				res.sendStatus(400);
 				return;
 		}
 	}
@@ -530,19 +509,21 @@ app.post("/files",function(req,res){
 app.get("/linkshare",function(req,res){
 	let username = req.query.user;
 	let root = req.query.root;
-	let path = req.query.path;
+	let ino = req.query.token;
 	
-	if(!username || !root || !path){
+	if(!username || !root || !ino){
 		res.sendFile(path.join(__dirname, "server", "views", "error404.html"));
 		return;
 	}
 	
 	let userData = userManager.getUserData(username,true);
 	let ufs = getUserFileSystemFromUserData(userData);
+	let database = ufs.getCorrespondingDatabase(root);
+	let fileTable = database.getTable("file","ino");
+	let infoObj = fileTable.get(ino, "ino");
 
-	let fullPath = ufs.resolve(root+"/$hcs$linkshare/"+path,true);
-	if(ufs.existsSync(fullPath,true)){
-		res.sendFile(ufs.getMachinePath(fullPath));
+	if(infoObj.linkShared && fs.existsSync(infoObj.linkSharePath)){
+		res.sendFile(infoObj.linkSharePath);
 	}
 	else{
 		res.sendFile(path.join(__dirname, "server", "views", "error404.html"));

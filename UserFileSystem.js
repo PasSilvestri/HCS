@@ -8,6 +8,7 @@ var FileTree = require("./FileSystemObjects").FileTree;
 var HCSFile = require("./FileSystemObjects").HCSFile;
 var HCSDirectory = require("./FileSystemObjects").HCSDirectory;
 var HCSSymLink = require("./FileSystemObjects").HCSSymLink;
+var PDatabase = require("./PDatabase");
 
 class UserFileSystem{
 
@@ -37,6 +38,9 @@ class UserFileSystem{
                 createIntermediatePath(p+"/$hcs$trash");
                 createIntermediatePath(p+"/$hcs$linkshare");
                 createIntermediatePath(p+"/$hcs$publicshare");
+                //Creating the database for this rootfolder and user
+                createIntermediatePath(p+"/$hcs$data");
+                this.rootFolderList[f.name].database = new PDatabase(p+"/$hcs$data");
 
                 /*
                 if( !fs.existsSync(p) ){
@@ -123,7 +127,8 @@ class UserFileSystem{
             pathString = this.currentMachineFolder;
         }
         
-
+        let database = this.getCorrespondingDatabase(this.getHCSPath(pathString));
+        let fileTable = (database) ? database.getTable("file","ino") : {};
         let fileList;
         try{
             pathString = this.resolve(pathString+"/");
@@ -154,16 +159,27 @@ class UserFileSystem{
             }
             let pa = path.join(pathString,f);
             let stat = fs.lstatSync(pa);
+
+            //Creating the info object to pass to the FileSystemObject with the database informations
+            let fileInfoTemp = fileTable.get(stat.ino,"ino") || {};
+            let fileInfo = {
+                linkShared: fileInfoTemp.linkShared,
+                publicShared: fileInfoTemp.publicShared
+            }
+            if(fileInfoTemp.linkShared){
+                fileInfo.link = fileInfoTemp.link;
+            }
+
             if(stat.isDirectory()){
-                let fsObject = new HCSDirectory(pa,this.getHCSPath(pa),stat.size);
+                let fsObject = new HCSDirectory(pa,this.getHCSPath(pa),stat.size,fileInfo);
                 fileTree.addDirectory(fsObject);
             }
             else if(stat.isFile()){
-                let fsObject = new HCSFile(pa,this.getHCSPath(pa),stat.size,mime.getType(pa),stat.mtimeMs);
+                let fsObject = new HCSFile(pa,this.getHCSPath(pa),stat.size,mime.getType(pa),stat.mtimeMs,fileInfo);
                 fileTree.addFile(fsObject);
             }
             else if(stat.isSymbolicLink()){
-                let fsObject = new HCSSymLink(pa,this.getHCSPath(pa));
+                let fsObject = new HCSSymLink(pa,this.getHCSPath(pa),fileInfo);
                 fileTree.addLink(fsObject);
             }
         }
@@ -192,7 +208,8 @@ class UserFileSystem{
             pathString = this.currentMachineFolder;
         }
         
-
+        let database = this.getCorrespondingDatabase(this.getHCSPath(pathString));
+        let fileTable = (database) ? database.getTable("file","ino") : {};
         let fileList;
         try{
             pathString = this.resolve(pathString+"/");
@@ -228,17 +245,39 @@ class UserFileSystem{
             if(stat.isDirectory()){
                 dirToVisit.push(pa);
                 if(fileFormattedName.includes(searchString)){
-                    let fsObject = new HCSDirectory(pa,this.getHCSPath(pa),stat.size);
+
+                    //Creating the info object to pass to the FileSystemObject with the database informations
+                    let fileInfoTemp = fileTable.get(stat.ino,"ino") || {};
+                    let fileInfo = {
+                        linkShared: fileInfoTemp.linkShared,
+                        publicShared: fileInfoTemp.publicShared
+                    }
+                    if(fileInfoTemp.linkShared){
+                        fileInfo.link = fileInfoTemp.link;
+                    }
+
+                    let fsObject = new HCSDirectory(pa,this.getHCSPath(pa),stat.size,fileInfo);
                     fileTree.addDirectory(fsObject);
                 }
             }
             else if(fileFormattedName.includes(searchString)){
+
+                //Creating the info object to pass to the FileSystemObject with the database informations
+                let fileInfoTemp = fileTable.get(stat.ino,"ino") || {};
+                let fileInfo = {
+                    linkShared: fileInfoTemp.linkShared,
+                    publicShared: fileInfoTemp.publicShared
+                }
+                if(fileInfoTemp.linkShared){
+                    fileInfo.link = fileInfoTemp.link;
+                }
+
                 if(stat.isFile()){
-                    let fsObject = new HCSFile(pa,this.getHCSPath(pa),stat.size,mime.getType(pa),stat.mtimeMs);
+                    let fsObject = new HCSFile(pa,this.getHCSPath(pa),stat.size,mime.getType(pa),stat.mtimeMs,fileInfo);
                     fileTree.addFile(fsObject);
                 }
                 else if(stat.isSymbolicLink()){
-                    let fsObject = new HCSSymLink(pa,this.getHCSPath(pa));
+                    let fsObject = new HCSSymLink(pa,this.getHCSPath(pa),fileInfo);
                     fileTree.addLink(fsObject);
                 }
             }
@@ -406,6 +445,57 @@ class UserFileSystem{
         }
         let pathDir = this.resolve(pathData.dir+"/",true);
 
+        let database = this.getCorrespondingDatabase(this.getHCSPath(pathString));
+        let fileTable = (database) ? database.getTable("file","ino") : undefined;
+        let stat = fs.statSync(machinePathString);
+        let infoObj = (fileTable) ? fileTable.get(stat.ino, "ino") || {ino: stat.ino} : {ino: stat.ino};
+
+        if(pathString.includes("$hcs$linkshare")){
+            fs.unlink(machinePathString,callback);
+            infoObj.linkShared = false;
+            delete infoObj.link;
+            delete infoObj.linkSharePath;
+            //Store the new info in the database
+            fileTable.store(infoObj);
+        }
+        else if(pathString.includes("$hcs$publicshare")){
+            fs.unlink(machinePathString,callback);
+            infoObj.publicShared = false;
+            delete infoObj.publicSharePath;
+            //Store the new info in the database
+            fileTable.store(infoObj);
+        }
+        else if(pathString.includes("$hcs$trash")){
+            //If it's in the trash folder, delete it
+            fs.unlink(machinePathString,callback);
+            //Remove the entri from the database
+            fileTable.remove(stat.ino)
+        }
+        else{
+            //If it's not a shared file nor is in the trash folder, move it there
+            let trash = this.getTrashFolder(pathString);
+            //Remove it from the public shared folder
+            let ps = this.getPublicShareFolder(pathString);
+            //Wheter it exists or not, unlink it
+            fs.unlink(this.getMachinePath(ps.correspondingPath),(err) => {});
+            //Remove it from the public shared folder
+            let ls = this.getLinkShareFolder(pathString);
+            //Wheter it exists or not, unlink it
+            fs.unlink(this.getMachinePath(ls.correspondingPath),(err) => {});
+
+            infoObj.linkShared = false;
+            infoObj.publicShared = false;
+            delete infoObj.link;
+            delete infoObj.publicSharePath;
+            delete infoObj.linkSharePath;
+            infoObj.path = trash.machinePath+"/"+pathData.base;
+            //Store the new info in the database
+            fileTable.store(infoObj);
+
+            fs.rename(machinePathString,trash.machinePath+"/"+pathData.base,callback);
+        }
+
+        /*
         //Remove it from the public shared folder
         let ps = this.getPublicShareFolder(pathString);
         //Wheter it exists or not, unlink it
@@ -431,6 +521,7 @@ class UserFileSystem{
         else{
             fs.unlink(machinePathString,callback);
         }
+        */
     }
 
     deleteFileSync(pathString){
@@ -439,70 +530,213 @@ class UserFileSystem{
         //Cannot delete hcs system folders
         if(pathData.base.startsWith("$hcs$")){
             //Error: Non valid path
-            throw new UserFileSystemError(3);
+            callback(new UserFileSystemError(3));
+            return;
         }
         let pathDir = this.resolve(pathData.dir+"/",true);
-        if(pathDir != pathData.root + "/$hcs$trash/"){
-            let trash = this.getTrashFolder(pathString);
-            fs.renameSync(machinePathString,trash.machinePath+"/"+pathData.base,callback);
+
+        let database = this.getCorrespondingDatabase(this.getHCSPath(pathString));
+        let fileTable = (database) ? database.getTable("file","ino") : undefined;
+        let stat = fs.statSync(machinePathString);
+        let infoObj = (fileTable) ? fileTable.get(stat.ino, "ino") || {ino: stat.ino} : {ino: stat.ino};
+
+        if(pathString.includes("$hcs$linkshare")){
+            fs.unlinkSync(machinePathString);
+            infoObj.linkShared = false;
+            delete infoObj.link;
+            delete infoObj.linkSharePath;
+            //Store the new info in the database
+            fileTable.store(infoObj);
+        }
+        else if(pathString.includes("$hcs$publicshare")){
+            fs.unlinkSync(machinePathString);
+            infoObj.publicShared = false;
+            delete infoObj.publicSharePath;
+            //Store the new info in the database
+            fileTable.store(infoObj);
+        }
+        else if(pathString.includes("$hcs$trash")){
+            //If it's in the trash folder, delete it
+            fs.unlinkSync(machinePathString);
+            //Remove the entri from the database
+            fileTable.remove(stat.ino)
         }
         else{
-            fs.unlinkSync(machinePathString,callback);
+            //If it's not a shared file nor is in the trash folder, move it there
+            let trash = this.getTrashFolder(pathString);
+            try{
+                //Remove it from the public shared folder
+                let ps = this.getPublicShareFolder(pathString);
+                //Wheter it exists or not, unlink it
+                fs.unlinkSync(this.getMachinePath(ps.correspondingPath));
+                //Remove it from the public shared folder
+                let ls = this.getLinkShareFolder(pathString);
+                //Wheter it exists or not, unlink it
+                fs.unlinkSync(this.getMachinePath(ls.correspondingPath));
+            }
+            catch(err){}
+
+            infoObj.linkShared = false;
+            infoObj.publicShared = false;
+            delete infoObj.link;
+            delete infoObj.publicSharePath;
+            delete infoObj.linkSharePath;
+            infoObj.path = trash.machinePath+"/"+pathData.base;
+            //Store the new info in the database
+            fileTable.store(infoObj);
+
+            fs.renameSync(machinePathString,trash.machinePath+"/"+pathData.base);
         }
+
     }
 
-    moveFile(srcPath,dstPath,copy = false, callback){
-        //System folders cannot be moved
+    moveFile(srcPath,dstPath,callback){
         let pathData = this.parse(srcPath,true);
-        //Cannot delete hcs system folders
+        //Cannot move hcs system folders
         if(pathData.base.startsWith("$hcs$")){
-            //Error: Non valid path
+            //Error 3: Non valid path
             if(callback) callback(new UserFileSystemError(3));
+            return;
         }
 
-        if(typeof copy == "function"){
-            callback = copy;
-            copy = false;
+        if(srcPath.includes("$hcs$linkshare") || dstPath.includes("$hcs$linkshare")){
+            //Error 6: Non valid request
+            if(callback) callback(new UserFileSystemError(6));
+            return;
+        }
+        if(srcPath.includes("$hcs$publicshare") || dstPath.includes("$hcs$publicshare")){
+            //Error 6: Non valid request
+            if(callback) callback(new UserFileSystemError(6));
+            return;
         }
 
-        srcPath = this.getMachinePath(srcPath);
-        dstPath = this.getMachinePath(dstPath);
+        let srcPathMachine = this.getMachinePath(srcPath);
+        let dstPathMachine = this.getMachinePath(dstPath);
 
-        fs.copyFile(srcPath,dstPath,(err)=>{
+        let database = this.getCorrespondingDatabase(srcPath);
+        let fileTable = (database) ? database.getTable("file","ino") : undefined;
+        let stat = fs.statSync(srcPathMachine);
+        let infoObj = (fileTable) ? fileTable.get(stat.ino, "ino") || {ino: stat.ino} : {ino: stat.ino};
+
+
+        fs.rename(srcPathMachine,dstPathMachine,function(err){
             if(err){
-                if(callback) callback(err);
+                callback(err);
+                return;
             }
-            else{
-                fs.unlink(srcPath);
-                if(callback) callback();
+            //If the file was shared, delete the old hardlink in the share folder and reshare it (it won't write anything new on the disk, just create a new hardlink)
+            if(infoObj.publicShared){
+                fs.unlink(infoObj.publicSharePath,(err) => {});
+                this.shareFile(dstPath,1,()=>{});
             }
-        });
+            if(infoObj.linkShared){
+                fs.unlink(infoObj.linkSharePath,(err) => {});
+                this.shareFile(dstPath,2,()=>{});
+            }
+            callback();
+        }.bind(this));
     }
 
-    moveFileSync(srcPath,dstPath,copy = false){
-        //System folders cannot be moved
+    moveFileSync(srcPath,dstPath){
         let pathData = this.parse(srcPath,true);
-        //Cannot delete hcs system folders
+        //Cannot move hcs system folders
         if(pathData.base.startsWith("$hcs$")){
-            //Error: Non valid path
+            //Error 3: Non valid path
             throw new UserFileSystemError(3);
         }
 
-        if(typeof copy == "function"){
-            callback = copy;
-            copy = false;
+        if(srcPath.includes("$hcs$linkshare") || dstPath.includes("$hcs$linkshare")){
+            //Error 6: Non valid request
+            throw new UserFileSystemError(6);
+        }
+        if(srcPath.includes("$hcs$publicshare") || dstPath.includes("$hcs$publicshare")){
+            //Error 6: Non valid request
+            throw new UserFileSystemError(6);
         }
 
-        srcPath = this.getMachinePath(srcPath);
-        dstPath = this.getMachinePath(dstPath);
+        let srcPathMachine = this.getMachinePath(srcPath);
+        let dstPathMachine = this.getMachinePath(dstPath);
 
-        try{
-            fs.copyFileSync(srcPath,dstPath);
-            fs.unlinkSync(srcPath);
+        let database = this.getCorrespondingDatabase(srcPath);
+        let fileTable = (database) ? database.getTable("file","ino") : undefined;
+        let stat = fs.statSync(srcPathMachine);
+        let infoObj = (fileTable) ? fileTable.get(stat.ino, "ino") || {ino: stat.ino} : {ino: stat.ino};
+
+
+        fs.renameSync(srcPathMachine,dstPathMachine);
+        //If the file was shared, delete the old hardlink in the share folder and reshare it (it won't write anything new on the disk, just create a new hardlink)
+        if(infoObj.publicShared){
+            fs.unlink(infoObj.publicSharePath,(err) => {});
+            this.shareFile(dstPath,1,()=>{});
         }
-        catch(err){
-            throw err;
+        if(infoObj.linkShared){
+            fs.unlink(infoObj.linkSharePath,(err) => {});
+            this.shareFile(dstPath,2,()=>{});
         }
+    }
+
+    copyFile(srcPath,dstPath,callback){
+        let pathData = this.parse(srcPath,true);
+        //Cannot move hcs system folders
+        if(pathData.base.startsWith("$hcs$")){
+            //Error 3: Non valid path
+            if(callback) callback(new UserFileSystemError(3));
+            return;
+        }
+
+        if(srcPath.includes("$hcs$linkshare") || dstPath.includes("$hcs$linkshare")){
+            //Error 6: Non valid request
+            if(callback) callback(new UserFileSystemError(6));
+            return;
+        }
+        if(srcPath.includes("$hcs$publicshare") || dstPath.includes("$hcs$publicshare")){
+            //Error 6: Non valid request
+            if(callback) callback(new UserFileSystemError(6));
+            return;
+        }
+        if(srcPath.includes("$hcs$trash") || dstPath.includes("$hcs$trash")){
+            //Error 6: Non valid request
+            if(callback) callback(new UserFileSystemError(6));
+            return;
+        }
+
+        let srcPathMachine = this.getMachinePath(srcPath);
+        let dstPathMachine = this.getMachinePath(dstPath);
+
+        fs.copyFile(srcPathMachine,dstPathMachine,function(err){
+            if(err){
+                callback(err);
+                return;
+            }
+            callback();
+        }.bind(this));
+    }
+
+    copyFileSync(srcPath,dstPath){
+        let pathData = this.parse(srcPath,true);
+        //Cannot move hcs system folders
+        if(pathData.base.startsWith("$hcs$")){
+            //Error 3: Non valid path
+            throw new UserFileSystemError(3);
+        }
+
+        if(srcPath.includes("$hcs$linkshare") || dstPath.includes("$hcs$linkshare")){
+            //Error 6: Non valid request
+            throw new UserFileSystemError(6);
+        }
+        if(srcPath.includes("$hcs$publicshare") || dstPath.includes("$hcs$publicshare")){
+            //Error 6: Non valid request
+            throw new UserFileSystemError(6);
+        }
+        if(srcPath.includes("$hcs$trash") || dstPath.includes("$hcs$trash")){
+            //Error 6: Non valid request
+            throw new UserFileSystemError(6);
+        }
+
+        let srcPathMachine = this.getMachinePath(srcPath);
+        let dstPathMachine = this.getMachinePath(dstPath);
+
+        fs.copyFileSync(srcPathMachine,dstPathMachine);
     }
 
     shareFile(path,shareType,callback){
@@ -512,18 +746,40 @@ class UserFileSystem{
             callback(new UserFileSystemError(5));
         }
         path = this.resolve(path,true);
+        if(!this.existsSync(path,true)){
+            //Error 2: Path doesn't exists
+            callback(new UserFileSystemError(2));
+            return;
+        }
         let shareLoc = (shareType == 1) ? this.getPublicShareFolder(path).machinePath : this.getLinkShareFolder(path).machinePath;
         let filePathWORoot = path.substr(path.indexOf("/"));
         if(filePathWORoot.trim() == ""){
-            //Error 2: Non valid path
+            //Error 3: Non valid path
             callback(new UserFileSystemError(3));
             return;
         }
         shareLoc += filePathWORoot;
+        //Get database and table to store share info on the file
+        let database = this.getCorrespondingDatabase(path);
+        let fileTable = (database) ? database.getTable("file","ino") : undefined;
+        let stat = fs.statSync(this.getMachinePath(path));
+        let infoObj = {
+            ino: stat.ino,
+            path: path
+        }
         //If shareType is LinkShare, a link in return is needed
         var shareLink;
         if(shareType == 2){
-            shareLink = `/linkshare?user=${this.username}&root=${path.substring(0,path.indexOf("/"))}&path=${filePathWORoot}`;
+            shareLink = `/linkshare?user=${this.username}&root=${path.substring(0,path.indexOf("/"))}&token=${stat.ino}`;
+            //File info to store in the database
+            infoObj.linkShared = true;
+            infoObj.link = shareLink; //It's the url
+            infoObj.linkSharePath = shareLoc; //Is a machine path
+        }
+        else{
+            //File info to store in the database
+            infoObj.publicShared = true;
+            infoObj.publicSharePath = shareLoc; //Is a machine path
         }
         //First unlink any already present files
         fs.unlink(shareLoc,function(err){
@@ -536,6 +792,8 @@ class UserFileSystem{
                     callback(new UserFileSystemError(2));
                 }
                 else{
+                    //if sharing was completed, store the file infos in the database
+                    fileTable.store(infoObj);
                     callback(undefined,shareLink);
                 }
             }.bind(this));
@@ -705,6 +963,13 @@ class UserFileSystem{
         return fs.existsSync(pathString);
     }
 
+    getCorrespondingDatabase(pathString){
+        let root = this.parse(pathString,true).root;
+        if(this.rootFolderList[root]){
+            return this.rootFolderList[root].database;
+        }
+    }
+
     /**
      * Gets the trash folder for a specific path
      * @param {String} pathString - An HCS path, the root folder gets extrapolated and the relative trash folder is returned
@@ -841,6 +1106,7 @@ class UserFileSystemError{
     //3: Non valid path
     //4: Folder path required
     //5: Share type not supported
+    //6: Non valid request
     constructor(errorNumber, err){
         this.errorNumber = errorNumber;
         switch(errorNumber){
@@ -867,6 +1133,10 @@ class UserFileSystemError{
             case 5:
                 this.name = "Share type not supported";
                 this.message = "This share type is not supported";
+                break;
+            case 6:
+                this.name = "Non valid request";
+                this.message = "The request wan not valid or processable";
                 break;
         }
     }

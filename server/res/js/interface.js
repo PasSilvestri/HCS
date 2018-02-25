@@ -121,6 +121,7 @@ class Interface {
         //Setting up upload button
         this.addFileBtn = document.getElementById("addFileButton");
         this.bottomProgressBar = document.getElementById("bottomProgressBar");
+        this.uploadInfoDiv = document.getElementById("uploadInfo");
         this.addFileBtn.onclick = function () {
             //Open the file picker
             let filePicker = document.getElementById("filePicker");
@@ -1275,6 +1276,7 @@ uploadFile(files) {
     }
     //Show the progress bar and lock the add button first
     this.bottomProgressBar.style.display = "";
+    this.uploadInfoDiv.style.display = "";
     this.addFileBtn.setAttribute("disabled", "true");
     this.isUploadingFile = true;
     //Grab a reference to the files name
@@ -1283,13 +1285,21 @@ uploadFile(files) {
     //And then start uploading the file
     console.log("Started uploding " + filesName);
     this.hcs.uploadFile("./", files,
-        function (perc) {
+        function (perc, loadedData, totalData, bps, remainingTime) {
             //Every time a new percentage of uploading is calculated, update the progressbar
             if (perc != 1) {
                 this.bottomProgressBar.MaterialProgress.setProgress(perc * 100);
+                this.uploadInfoDiv.querySelector("#uploadSpeed").innerText = Math.floor(bps/1000);
+                this.uploadInfoDiv.querySelector("#uploadSpeedUnit").innerText = "KB/s";
+                this.uploadInfoDiv.querySelector("#ramainingTime").innerText = Math.ceil(remainingTime);
+                this.uploadInfoDiv.querySelector("#ramainingTimeUnit").innerText = "seconds";
             }
             else {
                 this.bottomProgressBar.classList.add("mdl-progress--indeterminate");
+                this.uploadInfoDiv.querySelector("#uploadSpeed").innerText = 0;
+                this.uploadInfoDiv.querySelector("#uploadSpeedUnit").innerText = "KB/s";
+                this.uploadInfoDiv.querySelector("#ramainingTime").innerText = 0;
+                this.uploadInfoDiv.querySelector("#ramainingTimeUnit").innerText = "seconds";
             }
 
         }.bind(this),
@@ -1312,6 +1322,7 @@ uploadFile(files) {
             }
             //Hide the progress bar and remove the indeterminate state
             this.bottomProgressBar.style.display = "none";
+            this.uploadInfoDiv.style.display = "none";
             this.bottomProgressBar.classList.remove("mdl-progress--indeterminate");
             //Reload the folder
             this.openFolder(undefined, false);
