@@ -1,6 +1,24 @@
 .pas-dialog{
     z-index:-1;
     display: none;
+}
+
+
+.pas-dialog[data-dialog-status=open]{
+    z-index:6;
+    display: block;
+    
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.pas-dialog[data-dialog-status=openModal]{
+    z-index:6;
+    display: block;
+    
     position: fixed;
     top: 0;
     left: 0;
@@ -8,14 +26,9 @@
     height: 100vh;
 }
 
-.pas-dialog[data-dialog-status=open]{
-    z-index:6;
-    display: block;
-}
-
 .pas-dialog__backdrop{
     background: rgba(0,0,0,0.75);
-    display: block;
+    display: none;
     position: fixed;
     top: 0;
     left: 0;
@@ -23,7 +36,12 @@
     height: 100%;
 }
 
-/*width and height for mobile devices*/
+/*Show backdrop only if in openModal */
+.pas-dialog[data-dialog-status=openModal] .pas-dialog__backdrop{
+    display: block;
+}
+
+
 .pas-dialog__content{
     position: absolute;
     top: 50%;
@@ -39,6 +57,7 @@
     padding: 5px;
 }
 
+/*width and height for non-mobile devices*/
 @media only screen and (min-width: 768px){
     .pas-dialog__content{
         max-width: 80%;

@@ -248,6 +248,7 @@ class HcsServerInterface {
         xhttp.send();
     }
 
+    //newPath needs to include the name of the file
     requestMoveFile(path,newPath,callback){
         if(typeof path != "string" || typeof newPath != "string"){
             throw "Path and newPath need to be strings";

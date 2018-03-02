@@ -6,10 +6,6 @@
 
 	<link rel="stylesheet" type="text/css" href="css/pas-dialog.css" />
 	<script defer src="js/pas-dialog.js"></script>
-	
-
-	<link rel="stylesheet" type="text/css" href="css/dialog-polyfill.css" />
-	<script src="js/dialog-polyfill.js"></script>
 
 	<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
 	<link rel="stylesheet" href="http://fonts.googleapis.com/css?family=Roboto:300,400,500,700" type="text/css">
@@ -30,76 +26,170 @@
 
 <body>
 
-
-	<div class="pas-dialog" data-dialog-status="open">
+	<!-- dialog to show files/folders infos -->
+	<div id="fileInfoDialog" class="pas-dialog" data-dialog-status="close">
 		<div class="pas-dialog__backdrop"></div>
 		<div class="pas-dialog__content">
-			
+			<!-- dialog menu -->
+			<button id="dialogMenu" class="mdl-button mdl-js-button mdl-button--icon">
+				<i class="material-icons">more_vert</i>
+			</button>
+
+			<ul class="mdl-menu mdl-menu--bottom-left mdl-js-menu mdl-js-ripple-effect" for="dialogMenu">
+				<li id="dialogPublicShareFile" class="mdl-menu__item">Share</li>
+				<li id="dialogLinkShareFile" class="mdl-menu__item mdl-menu__item--full-bleed-divider">Share By Link</li>
+				<li id="dialogRenameFile" class="mdl-menu__item">Rename</li>
+				<li id="dialogCutFile" class="mdl-menu__item">Cut</li>
+				<li id="dialogCopyFile" class="mdl-menu__item mdl-menu__item--full-bleed-divider" disabled>Copy</li>
+				<li id="dialogDeleteFile" class="mdl-menu__item">Delete</li>
+			</ul>
+
+			<h4 id="dialogTitle" class="mdl-dialog__title">Info</h4>
+			<div class="mdl-dialog__content">
+				<ul style="padding: 0px;">
+					<li>Path:
+						<b>
+							<span id="dialogPath"></span>
+						</b>
+					</li>
+					<li>Type:
+						<b>
+							<span id="dialogType"></span>
+						</b>
+					</li>
+					<li>Size:
+						<b>
+							<span id="dialogSize"></span>
+						</b>
+					</li>
+					<li>Last Modified:
+						<b>
+							<span id="dialogLastModified"></span>
+						</b>
+					</li>
+					<li>Public Shared:
+						<b>
+							<span id="dialogPublicShare"></span>
+						</b>
+					</li>
+					<li>Link Shared:
+						<b>
+							<span id="dialogLinkShare"></span>
+						</b>
+					</li>
+
+				</ul>
+			</div>
+			<div class="mdl-dialog__actions mdl-dialog__actions--full-width">
+				<button id="dialogDownloadFile" type="button" class="mdl-button">Download</button>
+				<button id="closeDialog" type="button" class="mdl-button close">Close</button>
+			</div>
 		</div>
 	</div>
 
-
-	<!-- dialog to show files/folders infos -->
-	<dialog id="fileInfoDialog" class="mdl-dialog fixed">
-
-		<!-- dialog menu -->
-		<button id="dialogMenu" class="mdl-button mdl-js-button mdl-button--icon">
-			<i class="material-icons">more_vert</i>
-		</button>
-
-		<ul class="mdl-menu mdl-menu--bottom-left mdl-js-menu mdl-js-ripple-effect" for="dialogMenu">
-			<li id="dialogPublicShareFile" class="mdl-menu__item">Share</li>
-			<li id="dialogLinkShareFile" class="mdl-menu__item mdl-menu__item--full-bleed-divider" disabled>Share By Link</li>
-			<li id="dialogDeleteFile" class="mdl-menu__item">Delete</li>
-		</ul>
-
-		<h4 id="dialogTitle" class="mdl-dialog__title">Info</h4>
-		<div class="mdl-dialog__content">
-			<ul style="padding: 0px;">
-				<li>Path:
-					<b>
-						<span id="dialogPath"></span>
-					</b>
-				</li>
-				<li>Type:
-					<b>
-						<span id="dialogType"></span>
-					</b>
-				</li>
-				<li>Size:
-					<b>
-						<span id="dialogSize"></span>
-					</b>
-				</li>
-				<li>Last Modified:
-					<b>
-						<span id="dialogLastModified"></span>
-					</b>
-				</li>
-
-			</ul>
-		</div>
-		<div class="mdl-dialog__actions mdl-dialog__actions--full-width">
-			<button id="dialogDownloadFile" type="button" class="mdl-button">Download</button>
-			<button id="closeDialog" type="button" class="mdl-button close">Close</button>
-		</div>
-	</dialog>
-
 	<!-- dialog to choose the new folder name -->
-	<dialog id="chooseNameDialog" class="mdl-dialog fixed">
+	<div id="chooseNameDialog" class="pas-dialog" data-dialog-status="close">
+		<div class="pas-dialog__backdrop"></div>
+		<div class="pas-dialog__content">
+			<h4 id="dialogTitle" class="mdl-dialog__title" style="text-overflow: ellipsis;">Choose a name</h4>
+			<form>
+				<div class="mdl-dialog__content">
+					<div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width: 100%">
+						<input class="mdl-textfield__input" type="text" id="newNameInputDialog">
+						<label class="mdl-textfield__label" for="newNameInputDialog">Name</label>
+					</div>
+				</div>
+				<div class="mdl-dialog__actions mdl-dialog__actions--full-width">
+					<button id="dialogSelectNewName" type="submit" class="mdl-button">Select</button>
+					<button id="closeDialog" type="button" class="mdl-button close">Close</button>
+				</div>
+			</form>
+		</div>	
+	</div>
 
-		<h4 id="dialogTitle" class="mdl-dialog__title" style="text-overflow: ellipsis;">Choose a name</h4>
-		<div class="mdl-dialog__content">
-			<div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width: 100%">
-				<input class="mdl-textfield__input" type="text" id="newNameInputDialog">
-				<label class="mdl-textfield__label" for="newNameInputDialog">Name</label>
+	<!-- dialog for the cutted elements -->
+	<div id="clipboardCutDialog" class="pas-dialog" data-dialog-status="close">
+		<div class="pas-dialog__backdrop"></div>
+		<div class="pas-dialog__content" style="width:50%;overflow:hidden;">
+			<h4 id="dialogTitle" class="mdl-dialog__title" style="text-overflow: ellipsis;">Cut &#38; Paste</h4>
+			<div class="mdl-dialog__content" style="overflow: auto;height: 500px;margin-bottom: 100px;box-sizing: border-box;"> 
+				<table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp" style="white-space:nowrap; width:100%;">
+					<thead>
+						<tr>
+							<th>
+								<label class="mdl-checkbox mdl-js-checkbox mdl-js-ripple-effect mdl-data-table__select" for="table-header_cut">
+									<input type="checkbox" id="table-header_cut" class="mdl-checkbox__input" />
+								</label>
+							</th>
+							<th class="mdl-data-table__cell--non-numeric">Name</th>
+							<th>Paste</th>
+							<th style="width:1px">Remove</th> <!-- width:1px works with mdl and shows the column nicely -->
+						</tr>
+					</thead>
+					<tbody>
+						<!-- <tr>
+							<td>
+								<label class="mdl-checkbox mdl-js-checkbox mdl-js-ripple-effect mdl-data-table__select">
+									<input type="checkbox" class="mdl-checkbox__input" />
+								</label>
+							</td>
+							<td class="mdl-data-table__cell--non-numeric">
+								<div class="icon-cell_left"><i class="material-icons">content_cut</i><span>aa.txt</span></div>
+							</td>
+							<td><div class="icon-cell_right"><button class="mdl-button mdl-js-button mdl-button--icon paste"><i class="material-icons">content_paste</i></button></div></td>
+							<td><div class="icon-cell_right"><button class="mdl-button mdl-js-button mdl-button--icon remove"><i class="material-icons">close</i></button></div></td>
+						</tr> -->
+					</tbody>
+				</table>
+			</div>
+			<div class="mdl-dialog__actions" style="position:absolute; bottom:0; width:100%; right:0; background:white; z-index:3; box-shadow:-2px -2px 2px 0 rgba(0,0,0,.14);">
+				<button id="dialogPasteSelected" type="submit" class="mdl-button">Paste Selected</button>
+				<button id="closeDialog" type="button" class="mdl-button close">Close</button>
 			</div>
 		</div>
-		<div class="mdl-dialog__actions mdl-dialog__actions--full-width">
-			<button id="dialogSelectNewName" type="button" class="mdl-button">Select</button>
-			<button id="closeDialog" type="button" class="mdl-button close">Close</button>
+	</div>
+
+	<!-- dialog for the copied elements -->
+	<div id="clipboardCopyDialog" class="pas-dialog" data-dialog-status="close">
+		<div class="pas-dialog__backdrop"></div>
+		<div class="pas-dialog__content" style="width:50%;overflow:hidden;">
+			<h4 id="dialogTitle" class="mdl-dialog__title" style="text-overflow: ellipsis;">Copy &#38; Paste</h4>
+			<div class="mdl-dialog__content" style="overflow: auto;height: 500px;margin-bottom: 100px;box-sizing: border-box;">
+				<table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp" style="white-space:nowrap; width:100%;">
+					<thead>
+						<tr>
+							<th>
+								<label class="mdl-checkbox mdl-js-checkbox mdl-js-ripple-effect mdl-data-table__select" for="table-header_copy">
+									<input type="checkbox" id="table-header_copy" class="mdl-checkbox__input" />
+								</label>
+							</th>
+							<th class="mdl-data-table__cell--non-numeric">Name</th>
+							<th>Paste</th>
+							<th style="width:1px">Remove</th> <!-- width:1px works with mdl and shows the column nicely -->
+						</tr>
+					</thead>
+					<tbody>
+						<!-- <tr>
+								<td>
+									<label class="mdl-checkbox mdl-js-checkbox mdl-js-ripple-effect mdl-data-table__select">
+										<input type="checkbox" class="mdl-checkbox__input" />
+									</label>
+								</td>
+								<td class="mdl-data-table__cell--non-numeric">
+									<div class="icon-cell_left"><i class="material-icons">content_copy</i><span>aa.txt</span></div>
+								</td>
+								<td><div class="icon-cell_right"><button class="mdl-button mdl-js-button mdl-button--icon paste"><i class="material-icons">content_paste</i></button></div></td>
+								<td><div class="icon-cell_right"><button class="mdl-button mdl-js-button mdl-button--icon remove"><i class="material-icons">close</i></button></div></td>
+							</tr> -->
+					</tbody>
+				</table>
+			</div>
+			<div class="mdl-dialog__actions" style="position:absolute; bottom:0; width:100%; right:0; background:white; z-index:3; box-shadow:-2px -2px 2px 0 rgba(0,0,0,.14);">
+				<button id="dialogPasteSelected" type="submit" class="mdl-button">Paste Selected</button>
+				<button id="closeDialog" type="button" class="mdl-button close">Close</button>
+			</div>
 		</div>
-	</dialog>
+	</div>
 
 	<!-- Drawer -->
 	<div class="mdl-layout mdl-js-layout mdl-layout--fixed-drawer mdl-layout--fixed-header" id="overallLayout">
@@ -110,12 +200,15 @@
 				<div class="mdl-layout-spacer"></div>
 
 				<!-- search button -->
-				<div class="mdl-textfield mdl-js-textfield mdl-textfield--expandable mdl-textfield--floating-label mdl-textfield--align-right" id="navBarSearchButton">
+				<div class="mdl-textfield mdl-js-textfield mdl-textfield--expandable mdl-textfield--floating-label mdl-textfield--align-right"
+				 id="navBarSearchButton">
 					<label class="mdl-button mdl-js-button mdl-button--icon" for="searchInputBar">
 						<i class="material-icons">search</i>
 					</label>
 					<div class="mdl-textfield__expandable-holder">
-						<form id="fileSearchForm"><input class="mdl-textfield__input" type="text" name="searchInput" id="searchInputBar"></form>
+						<form id="fileSearchForm">
+							<input class="mdl-textfield__input" type="text" name="searchInput" id="searchInputBar">
+						</form>
 					</div>
 				</div>
 
@@ -126,7 +219,7 @@
 
 				<ul class="mdl-menu mdl-menu--bottom-right mdl-js-menu mdl-js-ripple-effect" for="menu-top-right">
 					<li class="mdl-menu__item" id="orderByTypeBtn">Order by type</li>
-					<li class="mdl-menu__item mdl-menu__item--full-bleed-divider"  id="orderByNameBtn">Order by name</li>
+					<li class="mdl-menu__item mdl-menu__item--full-bleed-divider" id="orderByNameBtn">Order by name</li>
 					<a href="/hcs-info.html" style="text-decoration: none;">
 						<li class="mdl-menu__item">HCS info</li>
 					</a>
@@ -141,7 +234,8 @@
 		<div class="mdl-layout__drawer noselect">
 			<!-- Big title - username -->
 			<span class="mdl-layout-title">#{username}</span>
-			<div style="height: 20px;"></div> <!-- a little manual bottom margin -->
+			<div style="height: 20px;"></div>
+			<!-- a little manual bottom margin -->
 			<nav id="drawerRootFolders" class="mdl-navigation">
 			</nav>
 			<div class="mdl-layout-spacer"></div>
@@ -171,7 +265,18 @@
 
 					<div class="mdl-layout-spacer"></div>
 
-					<form id="changePathForm" >
+					<span class="mdl-badge mdl-badge--overlap round-button-badge">
+						<button id="openCutDialogBtn" class="mdl-button mdl-js-button mdl-button--icon" >
+							<i class="material-icons">content_cut</i>
+						</button>
+					</span>
+					<span class="mdl-badge mdl-badge--overlap round-button-badge">
+						<button id="openCopyDialogBtn" class="mdl-button mdl-js-button mdl-button--icon" >
+							<i class="material-icons">content_copy</i>
+						</button>
+					</span>
+
+					<form id="changePathForm" style="margin-right: 15px;">
 						<div class="mdl-textfield mdl-js-textfield mdl-textfield--expandable">
 							<label class="mdl-button mdl-js-button mdl-button--icon" for="changePathBar">
 								<i class="material-icons">subdirectory_arrow_right</i>
@@ -183,6 +288,8 @@
 					</form>
 				</div>
 
+				
+
 				<table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp" style="width: 100%;">
 					<thead>
 						<tr>
@@ -192,11 +299,11 @@
 						</tr>
 					</thead>
 					<tbody id="fileTableBody">
-						<!-- table content filled by javascript -->						
+						<!-- table content filled by javascript -->
 					</tbody>
 				</table>
-		
-				
+
+
 
 				<footer id="footer" class=" footer fixed-bottom noselect">
 					<div class="top-footer-container">
@@ -205,17 +312,19 @@
 						<div id="musicPlayerDiv" style="visibility: hidden;">
 							<!-- the play pause button -->
 							<button id="playPauseBtn" class="mdl-button mdl-js-button mdl-button--fab mdl-button--mini-fab mdl-js-ripple-effect mdl-button--colored mdl-shadow--2dp">
-								<div><i class="material-icons">play_arrow</i></div>
+								<div>
+									<i class="material-icons">play_arrow</i>
+								</div>
 							</button>
 							<!-- time indication div -->
 							<div id="musicTimeDiv">
 								<span id="musicTime">00:00</span>
 								<span id="musicTotalTime">00:00</span>
 							</div>
-							
+
 							<div id="musicProgressBar" class="mdl-progress mdl-js-progress">
-									<span id="musicName"></span>
-									<input type="range" class="music-slider" value="0" step="0.001">
+								<span id="musicName"></span>
+								<input type="range" class="music-slider" value="0" step="0.001">
 							</div>
 							<script>
 								document.querySelector('#musicProgressBar').addEventListener('mdl-componentupgraded', function () {
@@ -238,7 +347,7 @@
 							</button>
 						</div>
 					</div>
-					
+
 
 					<!-- progress bar -->
 					<div class="fixed-bottom">
@@ -252,11 +361,11 @@
 						<div id="bottomProgressBar" class="mdl-progress mdl-js-progress fixed-bottom" style="display:none;"></div>
 					</div>
 				</footer>
-				
+
 
 			</div>
 		</main>
-		
+
 	</div>
 
 	<!-- notification snackbar (has a button) -->
@@ -280,27 +389,26 @@
 
 
 	<script>
-		window.addEventListener('resize', function(event){
+		window.addEventListener('resize', function (event) {
 			$("#footer").width($(".page-content").width());
 		});
 		window.addEventListener('load', function (event) {
-			console.log("Loaded");
 
 			$("#footer").width($(".page-content").width());
 
 			let hcs = new HcsServerInterface(function (hcs) {
 				window.interface = new Interface(hcs);
 				//Open current folder, setting the state and replacing the previous one, that is the automatically loaded page
-				if(hcs.currentFolder.includes("$hcs$trash")){
+				if (hcs.currentFolder.includes("$hcs$trash")) {
 					window.interface.openTrashFolder(undefined, true, true);
 				}
-				else if(hcs.currentFolder.includes("$hcs$publicshare")){
+				else if (hcs.currentFolder.includes("$hcs$publicshare")) {
 					window.interface.openPublicShareFolder(undefined, true, true);
 				}
-				else if(hcs.currentFolder.includes("$hcs$linkshare")){
+				else if (hcs.currentFolder.includes("$hcs$linkshare")) {
 					window.interface.openLinkShareFolder(undefined, true, true);
 				}
-				else{
+				else {
 					window.interface.openFolder(undefined, true, true);
 				}
 			});

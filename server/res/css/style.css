@@ -248,3 +248,42 @@ dialog+.backdrop {
 	user-select: none; /* Non-prefixed version, currently
 						supported by Chrome and Opera */
 }
+
+
+
+
+/* fix for the table */
+
+.mdl-checkbox.is-upgraded{
+	padding-left: 0px;
+}
+.mdl-data-table__select{
+	width: 100%;
+}
+
+/* END fix */
+
+/* cut&paste dialog */
+.cutPaste-table-div{
+    overflow: auto;
+    height: 500px;
+    margin-bottom: 100px;
+    box-sizing: border-box;
+
+}
+.cutPaste_actions{
+    position:  absolute;
+    bottom:  0;
+    width:  100%;
+    right: 0;
+    background:  white;
+    z-index: 3;
+    box-shadow: -2px -2px 2px 0 rgba(0,0,0,.14);
+
+}
+
+.mdl-badge::after{
+	background-color: rgb(33,150,243) !important;	
+}
+
+/* END cut&paste dialog */

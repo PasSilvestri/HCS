@@ -46,7 +46,7 @@ class FileTree{
 
 class HCSDirectory {
 
-    constructor(machinePath,path,size,type = "General",info = {}){        
+    constructor(machinePath,path,size,type = "General",lastModified,info = {}){
         this.class = "HCSDirectory";
         this.classIndex = 1;
         this.machinePath = machinePath;
@@ -55,6 +55,7 @@ class HCSDirectory {
         this.name = nameParts[nameParts.length -1];
         this.size = size;
         this.type = type;
+        this.lastModified = lastModified;
         
         for(let par in info){
             this[par] = info[par];

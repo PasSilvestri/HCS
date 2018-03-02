@@ -324,19 +324,14 @@ app.get("/files",function(req,res){
 					return;
 				}
 				//If the path exists deliver what was requested
-				if(stat.isFile){
-					ufs.shareFile(req.query.path,1, function(err){
-						if(err){
-							res.status(500).send(err.name);
-						}
-						else{
-							res.sendStatus(200);
-						}
-					});
-				}
-				else{
-					res.status(543).send("File path required");
-				}
+				ufs.shareFile(req.query.path,1, function(err){
+					if(err){
+						res.status(500).send(err.name);
+					}
+					else{
+						res.sendStatus(200);
+					}
+				});
 				return;
 			case "linksharefile":
 				res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
@@ -521,8 +516,13 @@ app.get("/linkshare",function(req,res){
 	let database = ufs.getCorrespondingDatabase(root);
 	let fileTable = database.getTable("file","ino");
 	let infoObj = fileTable.get(ino, "ino");
+	let filename = infoObj.path.substring(infoObj.path.lastIndexOf("/")+1);
+	if(filename.trim() == ""){
+		filename = "Unknown";
+	}
 
 	if(infoObj.linkShared && fs.existsSync(infoObj.linkSharePath)){
+		res.set('Content-Disposition', `inline; filename="${filename}"`);
 		res.sendFile(infoObj.linkSharePath);
 	}
 	else{
