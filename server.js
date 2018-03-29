@@ -3,9 +3,10 @@ var https = require("https");
 var fs = require("fs");
 var path = require("path");
 var express = require("express");
-var SocketIo = require("socket.io");
+var webSocket = require("ws");
 var bodyParser = require("body-parser");
 var fileUpload = require("express-fileupload");
+var cors = require('cors');
 var postDataParser = require("./PostDataParser");
 var deleteFolderRecursive = require("./FileHandler").deleteFolderRecursive;
 var pasHtmlEngine = require("./PasHtmlEngine");
@@ -29,10 +30,11 @@ userManager.setDefaultUserDataFunction(defaultUserData);
 var reconfigure = false;
 if(process.argv[3] == "-rc"){
 	reconfigure = true;
-	session.loadSessionFromFile();
+	session.loadSessionsFromFile();
 }
 //Loading the configuration file
 var configContent;
+//First test for the provided config file
 if (process.argv[2]) {
 	let cp = path.normalize(process.argv[2]);
 	try {
@@ -45,6 +47,7 @@ if (process.argv[2]) {
 		console.log(e);
 	}
 }
+//Then test for the default config file
 else if(fs.existsSync(path.join(__dirname,"hcs.config"))){
 	try {
 		configContent = fs.readFileSync( path.join(__dirname,"hcs.config") );
@@ -103,7 +106,6 @@ else{
 	server = http.createServer(app);
 	port = configuration.port;
 }
-var io = SocketIo(server);
 var sessionName = "session";
 
 //Set the query parser to "simple" because "extended" bugs with "-" charachters
@@ -117,6 +119,7 @@ app.set("views", "./server/views");
 
 //Data parsers
 //app.use("/upload/file", bodyParser.raw());
+postDataParser.clearTempFolder(); //Just to be sure, let's clear the temp folder form the half sent files
 app.use(postDataParser());
 /*
 app.use(fileUpload());
@@ -128,6 +131,15 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(session({
 	cookieName: sessionName
 }));
+
+//CORS options
+var corsOption = {
+	origin: true,
+	methods: "GET,POST",
+	preflightContinue: false
+}
+//Enabling CORS to let external domains use the api
+app.use(cors(corsOption));
 
 //Request logger
 app.use(function (req, res, next) {
@@ -216,26 +228,33 @@ app.get("/files",function(req,res){
 		//Recover the user's data and file system instance, or create one if dosen't exists
 		let username = req[sessionName].username;
 		let userData = userManager.getUserData(username,true);
-		let ufs = getUserFileSystemFromUserData(userData);
+		let ufs = getUserFileSystemFromUserData(userData,req[sessionName]);
 		//Finding what request it was
 		switch(req.query.req){
 			case "stat":
 				res.setHeader("Cache-Control","no-cache, no-store, must-revalidate");
 				ufs.stat(req.query.path,(err,stat) => {
-					if(err) 
+					if(err) {
 						res.sendStatus(404);
-					else
+					}
+					else {
 						res.end(JSON.stringify(stat));
+					}
 				});
 				return;
 			case "createfolder":
 				res.setHeader("Cache-Control","no-cache, no-store, must-revalidate");
 				ufs.createFolder(req.query.path,(err) => {
 					res.setHeader("Cache-Control","no-cache, no-store, must-revalidate");
-					if(err) 
+					if(err) {
 						res.status(544).end("Cannot create folder");
-					else 
+					}
+					else {
 						res.sendStatus(200);
+
+						//Updating all clients through websocket
+						webSocketBroadcast(username,req[sessionName].id,"createfolder",req.query.path);
+					}
 				});
 				return;
 			case "move":
@@ -246,6 +265,9 @@ app.get("/files",function(req,res){
 					}
 					else{
 						res.sendStatus(200);
+
+						//Updating all clients through websocket
+						webSocketBroadcast(username,req[sessionName].id,"move",[req.query.path,req.query.newpath]);
 					}
 				});
 				return;
@@ -257,6 +279,9 @@ app.get("/files",function(req,res){
 					}
 					else{
 						res.sendStatus(200);
+
+						//Updating all clients through websocket
+						webSocketBroadcast(username,req[sessionName].id,"copy",req.query.newpath);
 					}
 				});
 				return;
@@ -274,10 +299,12 @@ app.get("/files",function(req,res){
 			case "calcfoldersize":
 				res.setHeader("Cache-Control","no-cache, no-store, must-revalidate");
 				ufs.calculateFolderSize(req.query.path,true,function(err,size){
-					if(err) 
+					if(err) {
 						res.status(500).send(err.toString());
-					else 
+					}
+					else {
 						res.status(200).send(size.toString());
+					}
 				});
 				return;
 			case "rootfolderlist":
@@ -296,10 +323,15 @@ app.get("/files",function(req,res){
 			case "delete":
 				res.setHeader("Cache-Control","no-cache, no-store, must-revalidate");
 				ufs.deleteFile(req.query.path,function(err){
-					if(err) 
+					if(err) {
 						res.status(500).send(err.toString());
-					else 
+					}
+					else {
 						res.sendStatus(200);
+
+						//Updating all clients through websocket
+						webSocketBroadcast(username,req[sessionName].id,"delete",req.query.path);
+					}
 				});
 				return;
 			case "publicsharefolderinfo":
@@ -330,6 +362,9 @@ app.get("/files",function(req,res){
 					}
 					else{
 						res.sendStatus(200);
+
+						//Updating all clients through websocket
+						webSocketBroadcast(username,req[sessionName].id,"publicsharefile",req.query.path);
 					}
 				});
 				return;
@@ -352,6 +387,9 @@ app.get("/files",function(req,res){
 						}
 						else {
 							res.status(200).send(link);
+							
+							//Updating all clients through websocket
+							webSocketBroadcast(username,req[sessionName].id,"linksharefile",req.query.path);
 						}
 					});
 				}
@@ -445,7 +483,7 @@ app.get("/files",function(req,res){
 					res.status(542).send("Folder path required");
 				}
 				return;
-			//Default returns a file tree, even if the path requested is a file path
+			//Default error 400
 			default:
 				res.setHeader("Cache-Control","no-cache, no-store, must-revalidate");
 				res.sendStatus(400);
@@ -471,7 +509,7 @@ app.post("/files",function(req,res){
 	//Recover the user's data and file system instance, or create one if dosen't exists
 	let username = req[sessionName].username;
 	let userData = userManager.getUserData(username,true);
-	let ufs = getUserFileSystemFromUserData(userData);
+	let ufs = getUserFileSystemFromUserData(userData,req[sessionName]);
 
 	
 	let pathString = req.body.path || ufs.getCurrentHcsFolder();
@@ -484,14 +522,19 @@ app.post("/files",function(req,res){
 		for(let file of req.files.files){
 			console.log(`${username} is writing file: ${ufs.resolve(pathString+"/"+file.name,true)}`);
 			ufsPath = ufs.getMachinePath(pathString+"/"+file.name);
+			//Let's call move to put them from the PostDataParser temp folder to the right folder
 			file.move(ufsPath,(err)=> {
 				if(err){
 					res.sendStatus(500);
 					fileIndex = -1;
+					return;
 				}
 				if(fileIndex > -1) fileIndex++;
 				if(fileIndex >= req.files.files.length){
 					res.status(200).send(ufs.parse(pathString+"/"+req.files.files[0].name,true));
+					
+					//Updating all clients through websocket
+					webSocketBroadcast(username,req[sessionName].id,"upload",ufs.resolve(pathString,true));
 				}
 			});
 		}
@@ -531,6 +574,19 @@ app.get("/linkshare",function(req,res){
 });
 
 
+// app.get("/coin",function(req,res){
+// 	let x = Math.round(Math.random());
+// 	if(x==0){
+// 		res.send("test");
+// 		console.log("testa");
+// 	}
+// 	else{
+// 		res.send("croce");
+// 		console.log("croce");
+// 	}
+// });
+
+
 // If express gets to this point, means it hasn't found anything to handle the request
 app.use(function (req, res, next) {
 	var err = new Error('Not Found');
@@ -557,29 +613,112 @@ server.listen(port, function () {
 	console.log("Server started on port " + port);
 })
 
+//WEBSOCKET SECTION
 
-io.on("connection",function(userWS){
-	//Check if user logged in
-	var userSession = session.getRawSession(userWS.handshake.headers.cookie,true);
-	if(!userSession){
-		userWS.disconnect(true);
-		return;
-	}
-
-	var username = userSession.username;
-	userWS.join(username);
-
-	
-
+var wsServer = new webSocket.Server({
+	server: server,
+	clientTracking: true,
+	verifyClient: isUserAuth
 });
 
+//A dictionary of arrays of user web sockets
+var usersRooms = {};
+//When a user connects to this server
+wsServer.on("connection",function(userWS, req){
+	//Retrieving the session for this user and saving them inside his websocket
+	req = session.retrieveSessionFromCookie(req,undefined,sessionName);
+	//saving the session in the websocket
+	userWS[sessionName] = req[sessionName];
+	let userSession = req[sessionName];
+	//Saving the websocket in the session
+	userSession.webSocket = userWS;
+	//Setting up the emit function
+	userWS.sendEvent = generalSendEvent.bind(userWS);
 
-function getUserFileSystemFromUserData(userData){
-	if(!userData.ufs){
-		userData.ufs = new UserFileSystem(userData.username,configuration.getRootFolderArray());
+	//Create the array of clients for this user
+	if(!usersRooms[userSession.username]){
+		usersRooms[userSession.username] = [];
 	}
+	//And then add the websocket to it
+	usersRooms[userSession.username].push(userWS);
+
+	userWS.on('close', function() {
+		usersRooms[userSession.username].splice(usersRooms[userSession.username].indexOf(userWS),1);
+	});
+	userWS.on("error",(err) => console.log('WebSocket error: ' + err));
+});
+wsServer.on("error",(err) => console.log('WebSocket error: ' + err));
+
+function generalSendEvent(event, data){
+	let wres = {
+		req: event,
+		data: data
+	}
+	let message = JSON.stringify(wres);
+	this.send(message);
+}
+
+function webSocketBroadcast(username, sessionToken, event, data){
+	let wres = {
+		req: event,
+		data: data
+	}
+	let message = JSON.stringify(wres);
+	let room = usersRooms[username];
+	if(!room) return;
+	for(let userWS of room){
+		//if this websocket has sessionToken as a token, skip this websocket, so the message isn't sent back to the sender
+		if(userWS[sessionName].id == sessionToken){
+			continue;
+		}
+		userWS.send(message);
+	}
+}
+
+//Checks if user's session ID is valid
+//info can be both an http request or a websocket info object{origin {String} = Origin header, req = the client HTTP GET request, secure {Boolean} = true if req.connection.authorized or req.connection.encrypted is set.}
+function isUserAuth(info){
+	var sessionData = {};
+	var req;
+	//Info is an http req
+	if(info.method != undefined){
+		req = info;
+	}
+	//Info is the websocket info object
+	else if(info.req.method != undefined){
+		req = info.req;
+	}
+	
+	req = session.retrieveSessionFromCookie(req,undefined,sessionName);
+	sessionData = req[sessionName];
+	
+	//If there is no session, or logged == false, not logged
+	if(sessionData != undefined && sessionData.logged == true){
+		return true;
+	}
+	return false;
+}
+
+
+function getUserFileSystemFromUserData(userData, userSession = {}){
+	//If the session already has a ufs, return it
+	if(userSession.ufs){
+		return userSession.ufs;
+	}
+	//Otherwise, take it from memory
+	//If there is no ufs stored, create it
+	else if(!userData.ufs){
+		userData.ufs = new UserFileSystem(userData.username,configuration.getRootFolderArray());
+		userSession.ufs = userData.ufs;
+	}
+	//If there is one, but is not instanceof UserFileSystem means is a backup copy, refresh it
 	else if(!(userData.ufs instanceof UserFileSystem)){
 		userData.ufs = UserFileSystem.createFromBackupObject(userData.ufs);
+		userSession.ufs = userData.ufs;
 	}
-	return userData.ufs;
+	//If there is a ufs in memory, clone it, put the clone in the session data and return it
+	else{
+		userSession.ufs = UserFileSystem.cloneUserFileSystem(userData.ufs);
+	}
+	return userSession.ufs;
 }

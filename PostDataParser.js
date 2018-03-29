@@ -3,6 +3,7 @@ var path = require("path");
 var os = require("os");
 var Busboy = require("busboy");
 const uuidv4 = require('uuid/v4');
+var deleteFolderRecursive = require("./FileHandler").deleteFolderRecursive;
 
 var tempDataFolder = path.join(__dirname, "PostDataParser");
 
@@ -16,6 +17,10 @@ var getMiddleware = function(options){
     return function(req, res, next){
         parseBody(options,req,res,next);
     }
+}
+
+var clearTempFolder = function(){
+    deleteFolderRecursive(tempDataFolder);
 }
 
 var parseBody = function (options = {}, req, res, next) {
@@ -156,3 +161,4 @@ class PostFile {
 
 
 module.exports = getMiddleware;
+module.exports.clearTempFolder = clearTempFolder;

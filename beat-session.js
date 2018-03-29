@@ -123,7 +123,7 @@ function retrieveSessionFromCookie(req, res, cookieNamePassed){
 }
 
 /**
- * Get the session object from a parsed cookie object
+ * Get the session object from a parsed cookie object instead of a request
  * @param {Object} cookies - The parsed cookie object of am HTTPRequest
  * @param {Boolean} parse - True if cookies need to be parsed
  * @param {String} [cookieNamePassed] - The name of the cookie holding the session token. Is optional cause it can be set once in the middleware
@@ -209,3 +209,4 @@ module.exports.destroySession = destroySession;
 module.exports.retrieveSessionFromCookie = retrieveSessionFromCookie;
 module.exports.setSessionData = setSessionData;
 module.exports.getRawSession = getRawSession;
+module.exports.loadSessionsFromFile = loadSessionsFromFile;

@@ -51,6 +51,8 @@
     max-height: 90%;
     min-height: 40%;
     background-color: white;
+    -ms-transform:  translate(-50%, -50%);
+    -webkit-transform: translate(-50%, -50%);
     transform: translate(-50%,-50%);
     overflow-y: auto;
     box-sizing: border-box;

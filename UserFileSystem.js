@@ -13,35 +13,49 @@ var PDatabase = require("./PDatabase");
 
 class UserFileSystem{
 
-    constructor(username,rootfolders){
+    /**
+     * Creates a file system for a specific user
+     * @param {String} username - The username for this file system
+     * @param {Array} rootfolders - The rootfolders for this file system
+     * @param {Object} [databasePerRootfolder] - An object with rootfolders name as properies with the database for that rootfolder
+     */
+    constructor(username,rootfolders,databasePerRootfolder = {}){
         //Let use the default rootfolder if not passed
-        if(!rootfolders){
+        if (!rootfolders) {
             rootfolders = [];
             rootfolders.push(new RootFolder());
         }
         //If rootfolders is not an array, let's make it into one
-        if(!rootfolders instanceof Array){
+        if (!rootfolders instanceof Array) {
             rootfolders = [rootfolders];
         }
         this.rootFolderList = {};
+        this.databases = {};
         //Let's clear the rootfolder list, 
         //if the user is not allowed in this root folder remove the root folder from the list
         //else if he is allowed, add the copy of the folder specific to this user to the list
-        for(let i in rootfolders){
-            if(!rootfolders[i].isUserAllowed(username)){
-                rootfolders.splice(i,1);
+        for (let i in rootfolders) {
+            if (!rootfolders[i].isUserAllowed(username)) {
+                rootfolders.splice(i, 1);
             }
-            else{
+            else {
                 let f = rootfolders[i]; //The folder we are talking about
-                let p = path.join(f.path,username); //The user's folder inside this rootfolder
+                let p = path.join(f.path, username); //The user's folder inside this rootfolder
                 this.rootFolderList[f.name] = new RootFolder(f.name, p, f.all, f.usersAccepted, f.usersNotAccepted);
                 //Create the rootfolder directory and its trash, pulicshare and linkshare
-                createIntermediatePath(p+"/$hcs$trash");
-                createIntermediatePath(p+"/$hcs$linkshare");
-                createIntermediatePath(p+"/$hcs$publicshare");
+                createIntermediatePath(p + "/$hcs$trash");
+                createIntermediatePath(p + "/$hcs$linkshare");
+                createIntermediatePath(p + "/$hcs$publicshare");
                 //Creating the database for this rootfolder and user
-                createIntermediatePath(p+"/$hcs$data");
-                this.rootFolderList[f.name].database = new PDatabase(p+"/$hcs$data");
+                createIntermediatePath(p + "/$hcs$data");
+                if(databasePerRootfolder[f.name] && databasePerRootfolder[f.name].databaseFolder == (p + "/$hcs$data")){
+                    this.rootFolderList[f.name].database = databasePerRootfolder[f.name];
+                }
+                else{
+                    this.rootFolderList[f.name].database = new PDatabase(p + "/$hcs$data");
+                }
+                this.databases[f.name] = this.rootFolderList[f.name].database;
+                
 
                 /*
                 if( !fs.existsSync(p) ){
@@ -51,13 +65,14 @@ class UserFileSystem{
             }
         }
         //Now the rootfolders array has been cleaned from all inaccesible root folders, so if its length == 0, throw error
-        if(rootfolders.length == 0){
+        if (rootfolders.length == 0) {
             //Error: No root folder available
             throw new UserFileSystemError(1);
         }
+        //The root folders not customized for this specific user
         this.plainRootFolders = rootfolders;
 
-        
+
         this.username = username;
         this.currentRootFolder = rootfolders[0].name;
         this.currentHcsFolder = this.currentRootFolder + "/";
@@ -1159,6 +1174,18 @@ function createFromBackupObject(object){
     return ufs;
 }
 
+function cloneUserFileSystem(ufs){
+    if(!(ufs instanceof UserFileSystem)){
+        throw new Error("ufs has to be a UserFileSystem");
+    }
+
+    let newUfs = new UserFileSystem(ufs.username,ufs.plainRootFolders,ufs.databases);
+    newUfs.currentHcsFolder = ufs.currentHcsFolder;
+    newUfs.currentMachineFolder = ufs.currentMachineFolder;
+
+    return newUfs;
+}
+
 function createIntermediatePath(pathString) {
     pathString = path.resolve(pathString);
 
@@ -1271,3 +1298,4 @@ class UserFileSystemError{
 
 module.exports = UserFileSystem;
 module.exports.createFromBackupObject = createFromBackupObject;
+module.exports.cloneUserFileSystem = cloneUserFileSystem;

@@ -5,7 +5,8 @@
   "main": "server.js",
   "bin": "server.js",
   "scripts": {
-    "test": "node --inspect server.js"
+    "test": "node --inspect server.js",
+    "start": "node server.js"
   },
   "author": "PasSilvestri",
   "license": "ISC",
@@ -13,15 +14,16 @@
     "bcryptjs": "^2.4.3",
     "body-parser": "^1.18.2",
     "busboy": "^0.2.14",
+    "cors": "^2.8.4",
     "express": "^4.16.2",
     "express-fileupload": "^0.3.0",
     "get-folder-size": "^1.0.1",
     "is-valid-path": "^0.1.1",
     "mime": "^2.1.0",
     "ncp": "^2.0.0",
-    "socket.io": "^2.0.4",
     "uuid": "^3.2.1",
-    "webtorrent": "^0.98.20"
+    "webtorrent": "^0.98.20",
+    "ws": "^4.1.0"
   },
   "pkg": {
     "assets": "server/**/*"

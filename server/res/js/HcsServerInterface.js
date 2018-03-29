@@ -12,6 +12,46 @@ class HcsServerInterface {
         //     this.currentFolder = folder;
         // }.bind(this));
 
+        let protocol = (location.protocol.includes("https")) ? "wss://" : "ws://";
+        this.webSocket = new WebSocket(protocol + document.location.host);
+        this.webSocket.events = {};
+        this.webSocket.on = function(event,callback){
+            if(typeof event != "string"){
+                throw new Error("Event must be a string");
+            }
+            if(typeof callback != "function"){
+                throw new Error("Callback must be a function");
+            }
+            if(!this.webSocket.events[event]){
+                this.webSocket.events[event] = [];
+            }
+            this.webSocket.events[event].push(callback);
+        }.bind(this);
+        this.webSocket.removeOn = function(event,callback){
+            if(typeof event != "string"){
+                throw new Error("Event must be a string");
+            }
+            if(typeof callback != "function"){
+                throw new Error("Callback must be a function");
+            }
+            if(this.webSocket.events[event]){
+                let i = this.webSocket.events[event].indexOf(callback);
+                this.webSocket.events[event].splice(i,1);
+            }
+        }.bind(this);
+
+        // Listen for messages
+        this.webSocket.addEventListener('message', function (event) {
+            let data = JSON.parse(event.data);
+            if(this.webSocket.events[data.req]){
+                this.webSocket.events[data.req].forEach(function(callback){
+                    callback(data);
+                });
+            }
+            console.log('Message from server ');
+            console.log(data);
+        }.bind(this));
+
         var rootFolderListPromise = new Promise(function(resolve,reject){
 
             this.requestRootFolderList(function(err,folderList){

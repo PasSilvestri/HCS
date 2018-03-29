@@ -61,6 +61,9 @@ typings/
 #Test rootfolder
 RootFolders/
 
+#PostDataParser temp folder
+PostDataParser
+
 #Data folder to keep without files
 data/secure-data/*
 !data/secure-data/*.gitkeep

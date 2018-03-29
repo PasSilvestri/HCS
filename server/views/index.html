@@ -6,6 +6,7 @@
 
 	<link rel="stylesheet" type="text/css" href="css/pas-dialog.css" />
 	<script defer src="js/pas-dialog.js"></script>
+	<script defer src="js/longtouch2.js"></script>
 
 	<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
 	<link rel="stylesheet" href="http://fonts.googleapis.com/css?family=Roboto:300,400,500,700" type="text/css">
@@ -16,8 +17,8 @@
 
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.3/socket.io.js"></script>
-	<script src="js/HcsServerComunication.js" type="text/javascript"></script>
+	<script src="js/HcsServerInterface.js" type="text/javascript"></script>
+	<script src="js/MultiClientComunication.js" type="text/javascript"></script>
 	<script src="js/interface.js" type="text/javascript"></script>
 	<script src="js/MusicPlayer.js" type="text/javascript"></script>
 	<link rel="stylesheet" href="css/style.css" />
@@ -110,7 +111,7 @@
 	<!-- dialog for the cutted elements -->
 	<div id="clipboardCutDialog" class="pas-dialog" data-dialog-status="close">
 		<div class="pas-dialog__backdrop"></div>
-		<div class="pas-dialog__content" style="width:50%;overflow:hidden;">
+		<div class="pas-dialog__content" style="overflow:hidden;">
 			<h4 id="dialogTitle" class="mdl-dialog__title" style="text-overflow: ellipsis;">Cut &#38; Paste</h4>
 			<div class="mdl-dialog__content" style="overflow: auto;height: 500px;margin-bottom: 100px;box-sizing: border-box;"> 
 				<table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp" style="white-space:nowrap; width:100%;">
@@ -152,7 +153,7 @@
 	<!-- dialog for the copied elements -->
 	<div id="clipboardCopyDialog" class="pas-dialog" data-dialog-status="close">
 		<div class="pas-dialog__backdrop"></div>
-		<div class="pas-dialog__content" style="width:50%;overflow:hidden;">
+		<div class="pas-dialog__content" style="overflow:hidden;">
 			<h4 id="dialogTitle" class="mdl-dialog__title" style="text-overflow: ellipsis;">Copy &#38; Paste</h4>
 			<div class="mdl-dialog__content" style="overflow: auto;height: 500px;margin-bottom: 100px;box-sizing: border-box;">
 				<table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp" style="white-space:nowrap; width:100%;">
@@ -231,7 +232,7 @@
 
 			</div>
 		</header>
-		<div class="mdl-layout__drawer noselect">
+		<div class="mdl-layout__drawer noselect" id="full-navbar">
 			<!-- Big title - username -->
 			<span class="mdl-layout-title">#{username}</span>
 			<div style="height: 20px;"></div>
@@ -249,8 +250,17 @@
 				<a class="mdl-navigation__link">
 					<i class="material-icons" style="margin-right:32px;">settings</i>Settings</a>
 		</div>
-		<main class="mdl-layout__content">
-			<div class="page-content" style="overflow: auto; box-sizing: border-box;">
+		<main class="mdl-layout__content noselect">
+
+			<div id="drop-hint-area">
+				<div id="inner-border">
+					<h4>&#x21E9; Drop your files here &#x21E9;</h4>
+				</div>
+				<div id="invisible-drop-area"></div>
+			</div>
+
+			<div class="page-content" style=" /* overflow: auto; */ box-sizing: border-box;">
+					
 				<!-- Your content goes here -->
 				<div id="parentPathArrowContainer" class="noselect">
 					<div id="pathArrowContainer">
@@ -265,27 +275,34 @@
 
 					<div class="mdl-layout-spacer"></div>
 
-					<span class="mdl-badge mdl-badge--overlap round-button-badge">
-						<button id="openCutDialogBtn" class="mdl-button mdl-js-button mdl-button--icon" >
-							<i class="material-icons">content_cut</i>
-						</button>
-					</span>
-					<span class="mdl-badge mdl-badge--overlap round-button-badge">
-						<button id="openCopyDialogBtn" class="mdl-button mdl-js-button mdl-button--icon" >
-							<i class="material-icons">content_copy</i>
-						</button>
-					</span>
+					<div style="display: flex;flex-direction: row;align-items: center;">
+						<span class="mdl-badge mdl-badge--overlap round-button-badge centered-icons-span invisible">
+							<button id="openMultiselectionInfoBtn" class="mdl-button mdl-js-button mdl-button--icon" >
+								<i class="material-icons">info</i>
+							</button>
+						</span>
+						<span class="mdl-badge mdl-badge--overlap round-button-badge centered-icons-span">
+							<button id="openCutDialogBtn" class="mdl-button mdl-js-button mdl-button--icon" >
+								<i class="material-icons">content_cut</i>
+							</button>
+						</span>
+						<span class="mdl-badge mdl-badge--overlap round-button-badge centered-icons-span">
+							<button id="openCopyDialogBtn" class="mdl-button mdl-js-button mdl-button--icon" >
+								<i class="material-icons">content_copy</i>
+							</button>
+						</span>
 
-					<form id="changePathForm" style="margin-right: 15px;">
-						<div class="mdl-textfield mdl-js-textfield mdl-textfield--expandable">
-							<label class="mdl-button mdl-js-button mdl-button--icon" for="changePathBar">
-								<i class="material-icons">subdirectory_arrow_right</i>
-							</label>
-							<div class="mdl-textfield__expandable-holder">
-								<input class="mdl-textfield__input" type="text" id="changePathBar">
+						<form id="changePathForm" style="margin-right: 15px;">
+							<div class="mdl-textfield mdl-js-textfield mdl-textfield--expandable">
+								<label class="mdl-button mdl-js-button mdl-button--icon" for="changePathBar">
+									<i class="material-icons">subdirectory_arrow_right</i>
+								</label>
+								<div class="mdl-textfield__expandable-holder">
+									<input class="mdl-textfield__input" type="text" id="changePathBar">
+								</div>
 							</div>
-						</div>
-					</form>
+						</form>
+					</div>
 				</div>
 
 				
@@ -362,7 +379,6 @@
 					</div>
 				</footer>
 
-
 			</div>
 		</main>
 
@@ -411,10 +427,11 @@
 				else {
 					window.interface.openFolder(undefined, true, true);
 				}
+
+				window.multiClientComunication = new MultiClientComunication(hcs,window.interface);
 			});
 
 			window.musicPlayer = new MusicPlayer();
-			//window.musicPlayer.load(`http://localhost/files?req=file&path=Root%2FMusic%2FHappy%20Walking.mp3`,"Happy Walking");
 		});
 	</script>
 

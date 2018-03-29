@@ -616,10 +616,65 @@ class Interface {
         //endregion
 
         //region Setting up the drag and drop system
-        document.body.ondragover = function (event) {
-            //Prevent default browser behavior
-            event.preventDefault();
-        }
+        var dropArea = document.getElementById("drop-hint-area");
+        var invisibleDropArea = document.getElementById("invisible-drop-area");
+        var headerbar = document.querySelector("header");
+        var navbar = document.getElementById("full-navbar");
+        var bouncingText = document.querySelector("#inner-border h4");
+        var target;
+        window.addEventListener("drag", function (event) {
+            console.log("drag");
+            if(event.dataTransfer.types.includes("Files")) {
+                //Prevent default browser behavior if files are being draged
+                event.preventDefault();
+            }
+        });
+        //Useless drag events
+        /*
+        window.addEventListener("dragstart", function (event) {
+            console.log("dragstart");
+            console.log(event.target);
+        });
+        window.addEventListener("dragexit", function (event) {
+            console.log("dragexit");
+            console.log(event.target);
+        });
+        window.addEventListener("dragend", function (event) {
+            console.log("dragend");
+            console.log(event.target);
+        });
+        */
+        window.addEventListener("dragover", function (event) {
+
+            if(event.dataTransfer.types.includes("Files")) {
+                //Prevent default browser behavior if files are being draged
+                event.preventDefault();
+                dropArea.classList.add("visible");
+                bouncingText.classList.add("bounce");
+                headerbar.style.zIndex = 0;
+                navbar.style.zIndex = 0;
+            } 
+            else {
+                //If there are no files, this isn't the drag we care about
+                dropArea.classList.remove("visible");
+                bouncingText.classList.remove("bounce");
+                headerbar.style.zIndex = "";
+                navbar.style.zIndex = "";
+            } 
+        });
+        window.addEventListener("dragleave", function (event) {
+
+            if(event.dataTransfer.types.includes("Files")) {
+                //Prevent default browser behavior if files are being draged
+                event.preventDefault();
+                if(event.target == invisibleDropArea){
+                    dropArea.classList.remove("visible");
+                    bouncingText.classList.remove("bounce");
+                    headerbar.style.zIndex = "";
+                    navbar.style.zIndex = "";
+                }
+            }
+        });
         document.body.ondragend = function (ev) {
             var dt = ev.dataTransfer;
             if (dt.items) {
@@ -634,6 +689,12 @@ class Interface {
         }
         document.body.ondrop = function (ev) {
             ev.preventDefault();
+            //Hiding the drop area
+            dropArea.classList.remove("visible");
+            bouncingText.classList.remove("bounce");
+            headerbar.style.zIndex = "";
+            navbar.style.zIndex = "";
+
             if (this.addFileBtn.disabled) {
                 return;
             }
@@ -708,6 +769,43 @@ class Interface {
         this.searchBar.addEventListener("blur", function (event) {
             this.navBarSearchBtn.classList.remove("is-dirty");
         }.bind(this));
+        //endregion
+
+        //region Setting up the multiple selection handling system
+        this.multipleSelection = {};
+        this.multipleSelection.infoBtn = document.getElementById("openMultiselectionInfoBtn");
+        this.multipleSelection.badge = this.multipleSelection.infoBtn.parentElement;
+        this.multipleSelection.update = function(){
+            let selected = document.querySelectorAll("tr.selected");
+            if(selected.length > 0){
+                this.multipleSelection.badge.classList.remove("invisible");
+                this.multipleSelection.badge.setAttribute("data-badge",selected.length);
+            }
+            else{
+                this.multipleSelection.badge.classList.add("invisible");
+            }
+        }.bind(this);
+
+        this.multipleSelection.infoBtn.onclick = function(){
+            let selected = document.querySelectorAll("tr.selected");
+            //If the multipleSelection info button is showing but no file was selected
+            //there was an error, update the interface to fix the problem
+            if(selected.length == 0){
+                this.multipleSelection.update();
+                return;
+            }
+            let files = [];
+            let canShare = true;
+            let canCopy = true;
+            let canCut = true;
+            selected.forEach(function(tr){
+                files.push(tr.fileSystemObj);
+                canShare = canShare && tr.canOptions.canShare;
+                canCopy = canCopy && tr.canOptions.canCopy;
+                canCut = canCut && tr.canOptions.canCut;
+            });
+            this.showMultipleFileInfo(files,selected,canShare,canCut,canCopy);
+        }.bind(this);
         //endregion
 
         //region Seting up the popstate event so that it handles back button clicks
@@ -1297,11 +1395,17 @@ class Interface {
         //Create path arrows
         this.buildArrowPath(customArrowPath || fileTree.path, arrowPathReplacements, options.updateChangePathBar);
 
+        //Holds a list of all the tr in the table
+        this.allTableRow = [];
+
         //Create all the directories' table row
         if (printFolders) {
             for (let dir of fileTree.dirList) {
                 let tr = document.createElement("tr");
                 tr.setAttribute("data-hcsname", dir.name);
+                tr.name = dir.name;
+                tr.fileSystemObj = dir;
+                tr.canOptions = options;
                 tr.classList.add("pointable");
                 let tdName = document.createElement("td");
                 tdName.classList.add("mdl-data-table__cell--non-numeric");
@@ -1340,10 +1444,31 @@ class Interface {
                 tr.appendChild(tdName);
                 tr.appendChild(tdSize);
                 tr.appendChild(tdInfo);
-                tr.onclick = function () {
-                    this.openFolder(dir.path);
+                tr.onclick = function (event) {
+                    if(!event.ctrlKey){
+                        this.openFolder(dir.path);
+                    }
+                    else if(!tr.classList.contains("selected")){
+                        tr.classList.add("selected");
+                        this.multipleSelection.update();
+                    }
+                    else{
+                        tr.classList.remove("selected");
+                        this.multipleSelection.update();
+                    }
                 }.bind(this);
+                tr.addEventListener("longtouch",()=>{
+                    if(!tr.classList.contains("selected")){
+                        tr.classList.add("selected");
+                        this.multipleSelection.update();
+                    }
+                    else{
+                        tr.classList.remove("selected");
+                        this.multipleSelection.update();
+                    } 
+                });
                 this.fileTableBody.appendChild(tr);
+                this.allTableRow.push(tr);
             }
         }
 
@@ -1352,6 +1477,9 @@ class Interface {
             for (let file of fileTree.fileList) {
                 let tr = document.createElement("tr");
                 tr.setAttribute("data-hcsname", file.name);
+                tr.name = file.name;
+                tr.fileSystemObj = file;
+                tr.canOptions = options;
                 tr.classList.add("pointable");
                 let tdName = document.createElement("td");
                 tdName.classList.add("mdl-data-table__cell--non-numeric");
@@ -1372,6 +1500,7 @@ class Interface {
                 tdName.appendChild(leftIconDiv);
 
                 //Size
+                /*
                 let fileSize;
                 if (file.size >= 1000 * 1000) {
                     fileSize = (file.size / (1000 * 1000));
@@ -1389,6 +1518,8 @@ class Interface {
                     fileSize += " B";
                 }
                 tdSize.innerHTML = fileSize;
+                */
+                tdSize.innerHTML = this.prettyBytes(file.size);
 
                 //Info icon button
                 let rightIconDiv = document.createElement("div");
@@ -1407,9 +1538,30 @@ class Interface {
                 tr.appendChild(tdSize);
                 tr.appendChild(tdInfo);
                 tr.onclick = function () {
-                    this.openFile(file);
+                    if (!event.ctrlKey) {
+                        this.openFile(file);
+                    }
+                    else if(!tr.classList.contains("selected")){
+                        tr.classList.add("selected");
+                        this.multipleSelection.update();
+                    }
+                    else{
+                        tr.classList.remove("selected");
+                        this.multipleSelection.update();
+                    }
                 }.bind(this);
+                tr.addEventListener("longtouch", () => {
+                    if(!tr.classList.contains("selected")){
+                        tr.classList.add("selected");
+                        this.multipleSelection.update();
+                    }
+                    else{
+                        tr.classList.remove("selected");
+                        this.multipleSelection.update();
+                    }
+                });
                 this.fileTableBody.appendChild(tr);
+                this.allTableRow.push(tr);
             }
         }
     }
@@ -1453,6 +1605,9 @@ class Interface {
             for (let dir of fileTree.dirList) {
                 let tr = document.createElement("tr");
                 tr.setAttribute("data-hcsname", dir.name);
+                tr.name = dir.name;
+                tr.fileSystemObj = dir;
+                tr.canOptions = options;
                 tr.classList.add("pointable");
                 let tdName = document.createElement("td");
                 tdName.classList.add("mdl-data-table__cell--non-numeric");
@@ -1491,9 +1646,29 @@ class Interface {
                 tr.appendChild(tdName);
                 tr.appendChild(tdSize);
                 tr.appendChild(tdInfo);
-                tr.onclick = function () {
-                    this.openFolder(dir.path);
+                tr.onclick = function (event) {
+                    if(!event.ctrlKey){
+                        this.openFolder(dir.path);
+                    }
+                    else if(!tr.classList.contains("selected")){
+                        tr.classList.add("selected");
+                        this.multipleSelection.update();
+                    }
+                    else{
+                        tr.classList.remove("selected");
+                        this.multipleSelection.update();
+                    }
                 }.bind(this);
+                tr.addEventListener("longtouch",()=>{
+                    if(!tr.classList.contains("selected")){
+                        tr.classList.add("selected");
+                        this.multipleSelection.update();
+                    }
+                    else{
+                        tr.classList.remove("selected");
+                        this.multipleSelection.update();
+                    } 
+                });
                 toSort.push(tr);
             }
         }
@@ -1503,6 +1678,9 @@ class Interface {
             for (let file of fileTree.fileList) {
                 let tr = document.createElement("tr");
                 tr.setAttribute("data-hcsname", file.name);
+                tr.name = file.name;
+                tr.fileSystemObj = file;
+                tr.canOptions = options;
                 tr.classList.add("pointable");
                 let tdName = document.createElement("td");
                 tdName.classList.add("mdl-data-table__cell--non-numeric");
@@ -1523,6 +1701,7 @@ class Interface {
                 tdName.appendChild(leftIconDiv);
 
                 //Size
+                /*
                 let fileSize;
                 if (file.size >= 1000 * 1000) {
                     fileSize = (file.size / (1000 * 1000));
@@ -1540,6 +1719,8 @@ class Interface {
                     fileSize += " B";
                 }
                 tdSize.innerHTML = fileSize;
+                */
+                tdSize.innerHTML = this.prettyBytes(file.size);
 
                 //Info icon button
                 let rightIconDiv = document.createElement("div");
@@ -1558,8 +1739,28 @@ class Interface {
                 tr.appendChild(tdSize);
                 tr.appendChild(tdInfo);
                 tr.onclick = function () {
-                    this.openFile(file.path);
+                    if (!event.ctrlKey) {
+                        this.openFile(file);
+                    }
+                    else if(!tr.classList.contains("selected")){
+                        tr.classList.add("selected");
+                        this.multipleSelection.update();
+                    }
+                    else{
+                        tr.classList.remove("selected");
+                        this.multipleSelection.update();
+                    }
                 }.bind(this);
+                tr.addEventListener("longtouch", () => {
+                    if(!tr.classList.contains("selected")){
+                        tr.classList.add("selected");
+                        this.multipleSelection.update();
+                    }
+                    else{
+                        tr.classList.remove("selected");
+                        this.multipleSelection.update();
+                    }
+                });
                 toSort.push(tr);
             }
         }
@@ -1596,6 +1797,7 @@ class Interface {
             i.sizeLable.style.cursor = "";
             i.sizeLable.style.color = "";
 
+            /*
             let fileSize;
             if (file.size >= 1000 * 1000) {
                 fileSize = (file.size / (1000 * 1000));
@@ -1613,6 +1815,8 @@ class Interface {
                 fileSize += " B";
             }
             i.sizeLable.innerText = fileSize;
+            */
+           i.sizeLable.innerText = this.prettyBytes(file.size);
         }
         else {
             i.sizeLable.innerText = "Click to calculate size...";
@@ -1627,6 +1831,7 @@ class Interface {
                         i.sizeLable.innerText = err;
                     }
                     else {
+                        /*
                         let fileSize;
                         if (size >= 1000 * 1000) {
                             fileSize = (size / (1000 * 1000));
@@ -1644,8 +1849,10 @@ class Interface {
                             fileSize += " B";
                         }
                         i.sizeLable.innerText = fileSize;
+                        */
+                       i.sizeLable.innerText = this.prettyBytes(size);
                     }
-                });
+                }.bind(this));
             }.bind(this);
         }
         i.lastModifiedLable.innerText = new Date(file.lastModified).toLocaleString();
@@ -1857,6 +2064,241 @@ class Interface {
         i.showModal();
     }
 
+    showMultipleFileInfo(files, trs, canShare = true, canCut = true, canCopy = true) {
+        if(files.length == 1){
+            this.showFileInfo(files[0],trs[0],canShare, canCut, canCopy);
+            return;
+        }
+        let i = this.infoDialog;
+        i.titleLable.innerText = files.length + " files";
+        i.pathLable.innerText = files[0].path.substring(0,files[0].path.lastIndexOf("/")) + "/*";
+        
+        files.forEach(function(file){
+            
+        });
+        i.publicShareLable.innerText = "N.A.";
+        i.linkShareLable.innerHTML = "N.A.";
+        let fileType = files[0].type;
+        let fileClass = files[0].classIndex;
+        //If its a file, just parse the size
+        //Reset the onclick of the size label from the last folder calculate size function
+        i.sizeLable.onclick = undefined;
+        i.sizeLable.style.cursor = "";
+        i.sizeLable.style.color = "";
+        i.sizeLable.innerText = "Loading...";
+        var promises = [];
+        //Creates an array of promises to calculate the total size of all files and folders + checking for all per file infos that are needed
+        files.forEach(function(file){
+
+            if(file.classIndex != fileClass){
+                fileClass = null;
+            }
+
+            if(file.type != fileType){
+                fileType = "Multiple types";
+            }
+
+            if (file.classIndex != 1) {
+                promises.push(new Promise(function(resolve,reject){
+                    resolve(file.size);
+                }));
+            }
+            else {
+
+                promises.push(new Promise(function(resolve,reject){
+                    this.hcs.requestFolderSize(file.path, function (err, size) {
+                        if(err){
+                            reject(err);
+                        }
+                        else{
+                            resolve(Number(size));
+                        }
+                    });
+                }.bind(this)));
+            }
+        }.bind(this));
+        //Resolving all promises
+        Promise.all(promises).then(function(values){
+            let filesTotalSize = 0;
+            for(let s of values){
+                filesTotalSize += s;
+            }
+            i.sizeLable.innerText = this.prettyBytes(filesTotalSize);
+        }.bind(this)
+        ,function(err){
+            i.sizeLable.innerText = "N.A.";
+        });
+        i.typeLable.innerText = fileType;
+        i.lastModifiedLable.innerText = "Multiple dates";
+        
+        /*
+        //Set up download button (classIndex == 1 => Directory)
+        if (fileClass != 1) {
+            i.downloadBtn.removeAttribute("disabled");
+            i.downloadBtn.onclick = function () {
+                let a = document.createElement("a");
+                a.setAttribute("href", "/files?req=file&path=" + file.path);
+                a.setAttribute("download", file.name);
+                a.click();
+            }
+        }
+        else {
+            i.downloadBtn.setAttribute("disabled", "true");
+            i.downloadBtn.onclick = undefined;
+        }
+        */
+        i.downloadBtn.setAttribute("disabled", "true");
+        i.downloadBtn.onclick = undefined;
+
+        //Set up delete button
+        i.deleteBtn.onclick = function () {
+            let result = confirm(`Are you sure to delete ${files.length} files ?`);
+            if (result) {
+                let generalError;
+                var promises = [];
+                //Creating a promises array to delete all files
+                files.forEach(function(file){
+                    promises.push(new Promise(function(resolve){
+                        this.hcs.requestDeleteFile(file.path, function (err) {
+                            if(err){
+                                generalError = err;
+                                resolve(file.name);
+                            }
+                            else{
+                                resolve();
+                            }
+                        }.bind(this));
+                    }.bind(this)));
+                }.bind(this));
+                Promise.all(promises).then(function(val){
+                    if (generalError) {
+                        //Filter out all the files that were fully deleted (that will be undefined values in this array)
+                        values = value.filter(function(elem){
+                            return elem;
+                        });
+                        var data = {
+                            message: `Error deleting ${values.length} out of ${files.length} files`,
+                            timeout: 3000
+                        };
+                        this.notification.MaterialSnackbar.showSnackbar(data);
+                        this.multipleSelection.update();
+                    }
+                    else {
+
+                        var data = {
+                            message: `${files.length} files deleted`,
+                            timeout: 3000
+                        };
+                        //Close the dialog and reload the current folder
+                        this.infoDialog.close();
+                        trs.forEach(function(tr){
+                            tr.remove();
+                        });
+                        this.notification.MaterialSnackbar.showSnackbar(data);
+                        this.multipleSelection.update();
+                    }
+                }.bind(this));
+            }
+        }.bind(this);
+
+        /*
+        //Resetting the cut button and then setting it up to cut this element
+        i.cutBtn.setAttribute("disabled", "disabled");
+        i.cutBtn.onclick = undefined;
+        if (canCut) {
+            i.cutBtn.removeAttribute("disabled");
+            i.cutBtn.onclick = function () {
+                this.clipboardCutDialog.addRow(file.name, file.path);
+                //Close the dialog
+                this.infoDialog.close();
+            }.bind(this);
+        }
+
+        //Resetting the copy button and then setting it up to copy this element
+        i.copyBtn.setAttribute("disabled", "disabled");
+        i.copyBtn.onclick = undefined;
+        if (canCopy) {
+            i.copyBtn.removeAttribute("disabled");
+            i.copyBtn.onclick = function () {
+                this.clipboardCopyDialog.addRow(file.name, file.path);
+                //Close the dialog
+                this.infoDialog.close();
+            }.bind(this);
+        }
+
+        //First reset to a general state, then activate share buttons if needed
+        i.publicShareBtn.setAttribute("disabled", "disabled");
+        i.publicShareBtn.onclick = undefined;
+        i.linkShareBtn.setAttribute("disabled", "disabled");
+        i.linkShareBtn.onclick = undefined;
+        if (canShare == true) {
+            //Enable buttons if they have been disabled by previous calls
+            i.publicShareBtn.removeAttribute("disabled");
+            i.publicShareBtn.onclick = function () {
+                this.hcs.shareFilePublic(file.path, function (err) {
+                    if (err) {
+
+                        var data = {
+                            message: `Error sharing ${file.name}: ${err} `,
+                            actionHandler: function (event) { this.click() }.bind(i.publicShareBtn),
+                            actionText: 'Retry',
+                            timeout: 3000
+                        };
+                        this.notification.MaterialSnackbar.showSnackbar(data);
+                    }
+                    else {
+
+                        var data = {
+                            message: `${file.name} shared`,
+                            timeout: 3000
+                        };
+                        //Close the dialog
+                        this.infoDialog.close();
+                        this.notification.MaterialSnackbar.showSnackbar(data);
+                        //Saving the info in the file manually, no need for another filetree request
+                        file.publicShared = true;
+                    }
+                }.bind(this));
+            }.bind(this);
+
+            //If is not a folder (classIndex 1 == Folder)
+            if (file.classIndex != 1) {
+                i.linkShareBtn.removeAttribute("disabled");
+                i.linkShareBtn.onclick = function () {
+                    this.hcs.shareFileLink(file.path, function (err, link) {
+                        if (err) {
+
+                            var data = {
+                                message: `Error sharing ${file.name}: ${err} `,
+                                actionHandler: function (event) { this.click() }.bind(i.linkShareBtn),
+                                actionText: 'Retry',
+                                timeout: 3000
+                            };
+                            this.notification.MaterialSnackbar.showSnackbar(data);
+                        }
+                        else {
+
+                            var data = {
+                                message: `${file.name} shared by link - Link in the file info`,
+                                timeout: 3000
+                            };
+                            //Close the dialog
+                            this.infoDialog.close();
+                            this.notification.MaterialSnackbar.showSnackbar(data);
+                            //Saving the info in the file manually, no need for another filetree request
+                            file.linkShared = true;
+                            file.link = link;
+                        }
+                    }.bind(this));
+                }.bind(this);
+            }
+            
+        }
+        */
+
+        i.showModal();
+    }
+
     uploadFile(files) {
         if (!files || files.length < 1) {
             return;
@@ -1876,8 +2318,9 @@ class Interface {
                 //Every time a new percentage of uploading is calculated, update the progressbar
                 if (perc != 1) {
                     this.bottomProgressBar.MaterialProgress.setProgress(perc * 100);
-                    this.uploadInfoDiv.querySelector("#uploadSpeed").innerText = Math.floor(bps / 1000);
-                    this.uploadInfoDiv.querySelector("#uploadSpeedUnit").innerText = "KB/s";
+                    //this.uploadInfoDiv.querySelector("#uploadSpeed").innerText = Math.floor(bps / 1000);
+                    this.uploadInfoDiv.querySelector("#uploadSpeed").innerText = this.prettyBytes(bps);
+                    this.uploadInfoDiv.querySelector("#uploadSpeedUnit").innerText = "/s";
                     this.uploadInfoDiv.querySelector("#ramainingTime").innerText = Math.ceil(remainingTime);
                     this.uploadInfoDiv.querySelector("#ramainingTimeUnit").innerText = "seconds";
                 }
@@ -1958,9 +2401,8 @@ class Interface {
         if(!file.type){
             document.location = path;
         }
-        console.log("Can Play this audio ? " + window.musicPlayer.audio.canPlayType(file.type));
         if (file.type.includes("audio") && window.musicPlayer.audio.canPlayType(file.type) != "") {
-            window.musicPlayer.load(path, file.name);
+            window.musicPlayer.load(path, file.name, file.path);
         }
         else {
             document.location = path;
@@ -2096,5 +2538,16 @@ class Interface {
         tr.appendChild(tdInfo);
 
         return tr;
+    }
+
+    //Function copied from a webtorrent demo - https://webtorrent.io/intro
+    prettyBytes(num) {
+        var exponent, unit, neg = num < 0, units = ['B', 'kB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
+        if (neg) num = -num
+        if (num < 1) return (neg ? '-' : '') + num + ' B'
+        exponent = Math.min(Math.floor(Math.log(num) / Math.log(1000)), units.length - 1)
+        num = Number((num / Math.pow(1000, exponent)).toFixed(2))
+        unit = units[exponent]
+        return (neg ? '-' : '') + num + ' ' + unit
     }
 }

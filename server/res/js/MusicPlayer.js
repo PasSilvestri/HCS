@@ -99,7 +99,7 @@ class MusicPlayer {
 
     }
 
-    load(src,name = "Unknown"){
+    load(src,name = "Unknown",hcsPath){
         this.buffered = 0;
         this.currentSrc = src;
         this.audio.src = src;
@@ -115,7 +115,18 @@ class MusicPlayer {
 
         this.setLoadingState();
         //If true a canplaythrough was called at least once, so the song automatically started playing
-        this.autoplay = false;
+        this.autoplay = false
+        
+        //Android play/pause notification
+        if ('mediaSession' in navigator) {
+            let album = hcsPath.substring(0,hcsPath.lastIndexOf("/"));
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: name,
+                artist: 'HCS',
+                album: album
+            });
+        }
+              
 
         this.audio.load();
     }
