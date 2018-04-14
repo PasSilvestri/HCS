@@ -120,6 +120,7 @@ class Interface {
 
             var table = this.clipboardCutDialog.table;
             var headerCheckbox = table.querySelector('thead .mdl-data-table__select input');
+            this.clipboardCutDialog.headerCheckbox = headerCheckbox;
             var headerCheckHandler = function (event) {
                 var boxes = table.querySelectorAll('tbody .mdl-data-table__select');
                 if (event.target.checked) {
@@ -141,6 +142,9 @@ class Interface {
         }.bind(this.clipboardCutDialog);
         this.clipboardCutDialog.pasteBtn = document.querySelector("#clipboardCutDialog #dialogPasteSelected");
         this.clipboardCutDialog.pasteSelected = function () {
+            //Eventually remove the headerCheckBox
+            this.clipboardCutDialog.headerCheckbox.parentElement.MaterialCheckbox.uncheck();
+
             let toCut = [];
             for (let tr of this.clipboardCutDialog.rowList) {
                 if (tr.checked) toCut.push(tr);
@@ -364,6 +368,7 @@ class Interface {
 
             var table = this.clipboardCopyDialog.table;
             var headerCheckbox = table.querySelector('thead .mdl-data-table__select input');
+            this.clipboardCopyDialog.headerCheckbox = headerCheckbox;
             var headerCheckHandler = function (event) {
                 var boxes = table.querySelectorAll('tbody .mdl-data-table__select');
                 if (event.target.checked) {
@@ -385,6 +390,9 @@ class Interface {
         }.bind(this.clipboardCopyDialog);
         this.clipboardCopyDialog.pasteBtn = document.querySelector("#clipboardCopyDialog #dialogPasteSelected");
         this.clipboardCopyDialog.pasteSelected = function () {
+            //Eventually remove the headerCheckBox
+            this.clipboardCopyDialog.headerCheckbox.parentElement.MaterialCheckbox.uncheck();
+
             let toCopy = [];
             for (let tr of this.clipboardCopyDialog.rowList) {
                 if (tr.checked) toCopy.push(tr);
@@ -863,6 +871,9 @@ class Interface {
         window.componentHandler.upgradeElements(this.cachedWaitingTableRow);
         this.fileTableBody.appendChild(this.cachedWaitingTableRow);
 
+        //Updating the multiple selection info icon to not show it
+        this.multipleSelection.update();
+
         if (!path) {
             //If path is undefined use the current synced directly
             path = this.hcs.currentFolder;
@@ -1005,6 +1016,9 @@ class Interface {
         }
         this.fileTableBody.appendChild(this.cachedWaitingTableRow);
 
+        //Updating the multiple selection info icon to not show it
+        this.multipleSelection.update();
+
         if (!path) {
             //If path is undefined use the current synced directly
             path = this.hcs.currentFolder;
@@ -1081,6 +1095,9 @@ class Interface {
         }
         this.fileTableBody.appendChild(this.cachedWaitingTableRow);
 
+        //Updating the multiple selection info icon to not show it
+        this.multipleSelection.update();
+
         if (!path) {
             //If path is undefined use the current synced directly
             path = this.hcs.currentFolder;
@@ -1156,6 +1173,9 @@ class Interface {
             this.fileTableBody.removeChild(this.fileTableBody.firstChild);
         }
         this.fileTableBody.appendChild(this.cachedWaitingTableRow);
+
+        //Updating the multiple selection info icon to not show it
+        this.multipleSelection.update();
 
         if (!path) {
             //If path is undefined use the current synced directly
@@ -1235,6 +1255,9 @@ class Interface {
         //Upgrading the element for MDL rendering
         window.componentHandler.upgradeElements(this.cachedWaitingTableRow);
         this.fileTableBody.appendChild(this.cachedWaitingTableRow);
+
+        //Updating the multiple selection info icon to not show it
+        this.multipleSelection.update();
 
         if (!path) {
             //If path is undefined use the current synced directly
@@ -1868,8 +1891,10 @@ class Interface {
             }
         }
         else {
-            i.downloadBtn.setAttribute("disabled", "true");
-            i.downloadBtn.onclick = undefined;
+            i.downloadBtn.removeAttribute("disabled");
+            i.downloadBtn.onclick = function () {
+                this.hcs.requestMultiFiles([file.path]);
+            }.bind(this);
         }
 
         //Set up delete button
@@ -2073,9 +2098,6 @@ class Interface {
         i.titleLable.innerText = files.length + " files";
         i.pathLable.innerText = files[0].path.substring(0,files[0].path.lastIndexOf("/")) + "/*";
         
-        files.forEach(function(file){
-            
-        });
         i.publicShareLable.innerText = "N.A.";
         i.linkShareLable.innerHTML = "N.A.";
         let fileType = files[0].type;
@@ -2131,24 +2153,16 @@ class Interface {
         i.typeLable.innerText = fileType;
         i.lastModifiedLable.innerText = "Multiple dates";
         
-        /*
+        
         //Set up download button (classIndex == 1 => Directory)
-        if (fileClass != 1) {
-            i.downloadBtn.removeAttribute("disabled");
-            i.downloadBtn.onclick = function () {
-                let a = document.createElement("a");
-                a.setAttribute("href", "/files?req=file&path=" + file.path);
-                a.setAttribute("download", file.name);
-                a.click();
+        i.downloadBtn.removeAttribute("disabled");
+        i.downloadBtn.onclick = function () {
+            var paths = [];
+            for(let i=0; i<files.length; i++){
+                paths[i] = files[i].path;
             }
-        }
-        else {
-            i.downloadBtn.setAttribute("disabled", "true");
-            i.downloadBtn.onclick = undefined;
-        }
-        */
-        i.downloadBtn.setAttribute("disabled", "true");
-        i.downloadBtn.onclick = undefined;
+            this.hcs.requestMultiFiles(paths);
+        }.bind(this);
 
         //Set up delete button
         i.deleteBtn.onclick = function () {
@@ -2201,36 +2215,49 @@ class Interface {
             }
         }.bind(this);
 
-        /*
+        //Disabling the rename button, no multiple rename
+        i.renameBtn.setAttribute("disabled", "disabled");
+        i.renameBtn.onclick = undefined;
+
+        
         //Resetting the cut button and then setting it up to cut this element
         i.cutBtn.setAttribute("disabled", "disabled");
         i.cutBtn.onclick = undefined;
         if (canCut) {
             i.cutBtn.removeAttribute("disabled");
             i.cutBtn.onclick = function () {
-                this.clipboardCutDialog.addRow(file.name, file.path);
+                files.forEach(function(file){
+                    this.clipboardCutDialog.addRow(file.name, file.path);
+                }.bind(this));
+                
                 //Close the dialog
                 this.infoDialog.close();
             }.bind(this);
         }
 
+        
         //Resetting the copy button and then setting it up to copy this element
         i.copyBtn.setAttribute("disabled", "disabled");
         i.copyBtn.onclick = undefined;
         if (canCopy) {
             i.copyBtn.removeAttribute("disabled");
             i.copyBtn.onclick = function () {
-                this.clipboardCopyDialog.addRow(file.name, file.path);
+                files.forEach(function(file){
+                    this.clipboardCopyDialog.addRow(file.name, file.path);
+                }.bind(this));
+                
                 //Close the dialog
                 this.infoDialog.close();
             }.bind(this);
         }
 
+        
         //First reset to a general state, then activate share buttons if needed
         i.publicShareBtn.setAttribute("disabled", "disabled");
         i.publicShareBtn.onclick = undefined;
         i.linkShareBtn.setAttribute("disabled", "disabled");
         i.linkShareBtn.onclick = undefined;
+        /*
         if (canShare == true) {
             //Enable buttons if they have been disabled by previous calls
             i.publicShareBtn.removeAttribute("disabled");

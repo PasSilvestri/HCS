@@ -52,6 +52,8 @@ class HcsServerInterface {
             console.log(data);
         }.bind(this));
 
+        /*
+        //Legacy code to request current folder and
         var rootFolderListPromise = new Promise(function(resolve,reject){
 
             this.requestRootFolderList(function(err,folderList){
@@ -87,7 +89,13 @@ class HcsServerInterface {
         .catch((err) => {
             throw err;
         });
+        */
 
+        //Recover info put by the server in the html
+        this.currentFolder = document.querySelector("#serverInfo #currentFolder").innerText;
+        this.rootFolderList = JSON.parse(document.querySelector("#serverInfo #rootFoldersList").innerText);
+
+        if(typeof onload == "function") onload(this);
 
     }
 
@@ -192,6 +200,14 @@ class HcsServerInterface {
         path = encodeURIComponent(path);
         xhttp.open("GET", `/files?req=file&path=${path}`, true);
         xhttp.send();
+    }
+
+    requestMultiFiles(paths){
+        if(!Array.isArray(paths)){
+            throw "Paths needs to be an array of strings";
+        }
+        paths = JSON.stringify(paths);
+        document.location = "/files?req=multifile&path=" + paths;
     }
 
     requestFileStat(path,callback){

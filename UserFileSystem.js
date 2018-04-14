@@ -618,8 +618,8 @@ class UserFileSystem{
     }
 
     moveFile(srcPath,dstPath,callback){
-        srcPath = this.resolve(srcPath);
-        dstPath = this.resolve(dstPath);
+        srcPath = this.resolve(srcPath,true);
+        dstPath = this.resolve(dstPath,true);
         //If the 2 paths are equal, no more work is needed
         if(srcPath == dstPath){
             if(callback) callback();
@@ -647,7 +647,7 @@ class UserFileSystem{
         let srcPathMachine = this.getMachinePath(srcPath);
         let dstPathMachine = this.getMachinePath(dstPath);
         //Create the destination path if it doesn't exists
-        createIntermediatePath(this.getMachinePath( dstPath.substring(0,dstPath.lastIndexOf("/")) ));
+        createIntermediatePath(dstPathMachine.substring(0,dstPathMachine.lastIndexOf(path.sep)) );
 
         let database = this.getCorrespondingDatabase(srcPath);
         let fileTable = (database) ? database.getTable("file","ino") : undefined;
@@ -1020,7 +1020,7 @@ class UserFileSystem{
     }
 
     /**
-     * Transform an HCs path into a machine path, if the user can see this path
+     * Transform an HCS path into a machine path, if the user can see this path
      * @param {String} pathString - The HCS path that gets transformed into a machine path
      * @returns {String} - The machine path
      */

@@ -7,6 +7,7 @@ var webSocket = require("ws");
 var bodyParser = require("body-parser");
 var fileUpload = require("express-fileupload");
 var cors = require('cors');
+var archiver = require("archiver");
 var postDataParser = require("./PostDataParser");
 var deleteFolderRecursive = require("./FileHandler").deleteFolderRecursive;
 var pasHtmlEngine = require("./PasHtmlEngine");
@@ -14,7 +15,7 @@ var session = require("./beat-session");
 var Configuration = require("./Configuration");
 var UserFileSystem = require("./UserFileSystem");
 var UserManager = require("./user-manager");
-//Pass cleanUp = true to the UserManager constructor cause users will be loaded by the configuration
+//Pass cleanUp = true to the UserManager constructor cause users will be loaded by the configuration (is a library legacy code work around)
 var userManager = new UserManager(true);
 var defaultUserData = function (username) {
 	var user = {
@@ -99,7 +100,7 @@ if(configuration.tls){
 		http.createServer(function (req, res) {
 			res.writeHead(301, { "Location": "https://" + req.headers['host'] + ":" + configuration.tlsCert.port + req.url });
 			res.end();
-		}).listen(configuration.port);
+		}).listen(configuration.port || 80);
 	}
 }
 else{
@@ -115,11 +116,9 @@ app.engine("html", pasHtmlEngine);
 app.set("view engine", "html");
 app.set("views", "./server/views");
 
-
-
 //Data parsers
 //app.use("/upload/file", bodyParser.raw());
-postDataParser.clearTempFolder(); //Just to be sure, let's clear the temp folder form the half sent files
+postDataParser.clearTempFolder(); //Just to be sure, let's clear the temp folder form the half received files
 app.use(postDataParser());
 /*
 app.use(fileUpload());
@@ -166,7 +165,23 @@ app.use(express.static("server/res"));
 // Routes
 app.get("/", function (req, res) {
 	if (req[sessionName] != undefined && req[sessionName].logged == true) {
-		res.render("index", { username: req[sessionName].username });
+
+		//Recover the user's data and file system instance, or create one if dosen't exists
+		let username = req[sessionName].username;
+		let userData = userManager.getUserData(username,true);
+		let ufs = getUserFileSystemFromUserData(userData,req[sessionName]);
+
+		let rootfolderlistObj = {
+			selected: ufs.getCurrentRootFolder(),
+			list: ufs.getRootFolderNames()
+		};
+
+		//Rendering the index page with some custom informations to speed up the setup process on the client
+		res.render("index", {
+			username: req[sessionName].username,
+			currentFolder: ufs.getCurrentHcsFolder(),
+			rootFoldersList: JSON.stringify(rootfolderlistObj)
+		});
 	}
 	else {
 		res.redirect("login");
@@ -483,6 +498,31 @@ app.get("/files",function(req,res){
 					res.status(542).send("Folder path required");
 				}
 				return;
+			case "multifile":
+				res.setHeader("Cache-Control","no-cache, no-store, must-revalidate");
+				var paths;
+				try{
+					//Is a json array of paths
+					paths = JSON.parse(req.query.path);
+					if(!Array.isArray(paths)){
+						res.sendStatus(400);
+						return;
+					}
+					for(let i=0; i<paths.length; i++){
+						if(typeof paths[i] == "string" && ufs.existsSync(paths[i],true)){
+							paths[i] = ufs.getMachinePath(paths[i]);
+						}
+						else{
+							res.sendStatus(404);
+							return;
+						}
+					}
+					zipFiles(paths,res);
+				}
+				catch(err){
+					res.sendStatus(400);
+				}
+				return;
 			//Default error 400
 			default:
 				res.setHeader("Cache-Control","no-cache, no-store, must-revalidate");
@@ -721,4 +761,55 @@ function getUserFileSystemFromUserData(userData, userSession = {}){
 		userSession.ufs = UserFileSystem.cloneUserFileSystem(userData.ufs);
 	}
 	return userSession.ufs;
+}
+
+var zipFiles = function (paths, response) {
+
+	var output = response;
+	var archive = archiver('zip', {
+		zlib: {
+			level: 9
+		}
+	});
+
+	// good practice to catch warnings (ie stat failures and other non-blocking errors)
+	archive.on('warning', function (err) {
+
+	});
+
+	// good practice to catch this error explicitly
+	archive.on('error', function (err) {
+		output.sendStatus(500);
+	});
+
+	//Appending every file and directory to the archive
+	paths.forEach(function (pathString) {
+		try {
+			var stat = fs.statSync(pathString);
+		}
+		catch (err) {
+			return;
+		}
+		if (stat.isDirectory()) {
+			archive.directory(pathString, path.parse(pathString).base);
+		}
+		else {
+			archive.file(pathString, { name: path.parse(pathString).base });
+		}
+	});
+
+	//Piping the archive to the response
+	archive.pipe(output);
+
+	//Setting the correct headers for the response
+	if(paths.length != 1){
+		output.attachment(paths.length + " files.zip");
+	}
+	else{
+		output.attachment(path.parse(paths[0]).base+ ".zip");
+	}
+	
+
+	archive.finalize();
+
 }
